@@ -1,0 +1,44 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景渐变 -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e0f2fe" stop-opacity="0.8" />
+      <stop offset="50%" stop-color="#bae6fd" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#7dd3fc" stop-opacity="0.4" />
+    </linearGradient>
+    
+    <!-- 网格图案 -->
+    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#0ea5e9" stroke-width="0.5" opacity="0.3" />
+    </pattern>
+    
+    <!-- 圆点图案 -->
+    <pattern id="dots" width="30" height="30" patternUnits="userSpaceOnUse">
+      <circle cx="15" cy="15" r="1" fill="#0284c7" opacity="0.5" />
+    </pattern>
+  </defs>
+  
+  <!-- 主背景 -->
+  <rect width="100%" height="100%" fill="url(#bgGradient)" />
+  
+  <!-- 网格层 -->
+  <rect width="100%" height="100%" fill="url(#grid)" />
+  
+  <!-- 圆点层 -->
+  <rect width="100%" height="100%" fill="url(#dots)" />
+  
+  <!-- 装饰线条 -->
+  <path d="M0,300 Q480,250 960,300 T1920,250" fill="none" stroke="#0ea5e9" stroke-width="1" opacity="0.2" />
+  <path d="M0,600 Q480,650 960,600 T1920,650" fill="none" stroke="#0ea5e9" stroke-width="1" opacity="0.2" />
+  
+  <!-- 装饰圆环 -->
+  <circle cx="200" cy="200" r="100" fill="none" stroke="#0284c7" stroke-width="1" opacity="0.3" />
+  <circle cx="1720" cy="880" r="150" fill="none" stroke="#0284c7" stroke-width="1" opacity="0.3" />
+  
+  <!-- 科技元素：六边形 -->
+  <path d="M960,100 L1010,130 L1010,190 L960,220 L910,190 L910,130 Z" fill="none" stroke="#0284c7" stroke-width="1" opacity="0.5" />
+  <path d="M960,860 L1030,900 L1030,980 L960,1020 L890,980 L890,900 Z" fill="none" stroke="#0284c7" stroke-width="1" opacity="0.5" />
+  
+  <!-- 科技元素：连接线 -->
+  <line x1="0" y1="540" x2="1920" y2="540" stroke="#38bdf8" stroke-width="0.5" stroke-dasharray="10,15" opacity="0.3" />
+</svg>

@@ -1,0 +1,28 @@
+<svg width="500" height="500" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- 磨砂玻璃效果的滤镜 -->
+    <filter id="blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="10" />
+      <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 30 -11" />
+    </filter>
+    
+    <!-- 光晕效果 -->
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+      <stop offset="0%" stop-color="#7dd3fc" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#0ea5e9" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  
+  <!-- 背景光晕 -->
+  <circle cx="250" cy="250" r="200" fill="url(#glow)" opacity="0.6" />
+  
+  <!-- 磨砂玻璃效果的矩形 -->
+  <rect x="100" y="100" width="300" height="300" rx="20" ry="20" fill="#ffffff" fill-opacity="0.1" filter="url(#blur)" />
+  
+  <!-- 边框效果 -->
+  <rect x="100" y="100" width="300" height="300" rx="20" ry="20" fill="none" stroke="#ffffff" stroke-opacity="0.2" stroke-width="1" />
+  
+  <!-- 高光效果 -->
+  <line x1="100" y1="120" x2="400" y2="120" stroke="#ffffff" stroke-opacity="0.3" stroke-width="1" />
+  <line x1="120" y1="100" x2="120" y2="400" stroke="#ffffff" stroke-opacity="0.3" stroke-width="1" />
+</svg>

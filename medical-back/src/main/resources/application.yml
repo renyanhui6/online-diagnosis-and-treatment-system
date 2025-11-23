@@ -1,0 +1,65 @@
+server:
+  servlet:
+    context-path: /treat
+  port: 8080
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://47.122.118.231:3306/OnlineTreat?serverTimezone=Asia/Shanghai
+    username: root
+    password: Qwer_1234
+  data:
+    redis:
+      timeout: 20000
+      host: 47.122.118.231
+      port: 6379
+      password: Qwer_1234
+  mail:
+    host: smtp.qq.com
+    port: 587
+    username: 2679327648@qq.com  # 发件邮箱
+    password: vebbhptoptrdebeb  # QQ邮箱授权码（非登录密码）
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls.enable: true  # TLS加密
+          ssl:
+            trust: smtp.qq.com
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
+
+  rabbitmq:
+    host: 47.122.118.231
+    port: 5672
+    username: admin
+    password: Qwer_1234
+    virtual-host:
+    connection-timeout: 10000ms
+    address-shuffle-mode:
+
+
+upload:
+  access-key: EweYlw_qGB72tDS-IEWXhfJpMYmg0-yE_hBKZCy4
+  secret-key: ZCIXRQVX3ocTIZf7dWCJ4h6nw9BmOjznooM7uJk5
+  bucket: room-manager
+#http://szwlb5xin.hn-bkt.clouddn.com域名
+
+
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+
+
+
+
+#vebbhptoptrdebeb

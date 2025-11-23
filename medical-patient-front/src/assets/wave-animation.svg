@@ -1,0 +1,35 @@
+<svg width="1920" height="240" viewBox="0 0 1920 240" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="waveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.2" />
+      <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#0ea5e9" stop-opacity="0.2" />
+    </linearGradient>
+    
+    <!-- 动画定义 -->
+    <animate xlink:href="#wave1" attributeName="d" dur="10s" repeatCount="indefinite" values="
+      M0,40 C320,80 480,0 960,40 C1440,80 1600,0 1920,40 V240 H0 Z;
+      M0,40 C320,0 480,80 960,40 C1440,0 1600,80 1920,40 V240 H0 Z;
+      M0,40 C320,80 480,0 960,40 C1440,80 1600,0 1920,40 V240 H0 Z" />
+    
+    <animate xlink:href="#wave2" attributeName="d" dur="12s" repeatCount="indefinite" values="
+      M0,80 C320,40 480,120 960,80 C1440,40 1600,120 1920,80 V240 H0 Z;
+      M0,80 C320,120 480,40 960,80 C1440,120 1600,40 1920,80 V240 H0 Z;
+      M0,80 C320,40 480,120 960,80 C1440,40 1600,120 1920,80 V240 H0 Z" />
+    
+    <animate xlink:href="#wave3" attributeName="d" dur="15s" repeatCount="indefinite" values="
+      M0,120 C320,160 480,80 960,120 C1440,160 1600,80 1920,120 V240 H0 Z;
+      M0,120 C320,80 480,160 960,120 C1440,80 1600,160 1920,120 V240 H0 Z;
+      M0,120 C320,160 480,80 960,120 C1440,160 1600,80 1920,120 V240 H0 Z" />
+  </defs>
+  
+  <!-- 波浪图层 -->
+  <path id="wave1" fill="url(#waveGradient)" opacity="0.6" d="M0,40 C320,80 480,0 960,40 C1440,80 1600,0 1920,40 V240 H0 Z">
+  </path>
+  
+  <path id="wave2" fill="url(#waveGradient)" opacity="0.4" d="M0,80 C320,40 480,120 960,80 C1440,40 1600,120 1920,80 V240 H0 Z">
+  </path>
+  
+  <path id="wave3" fill="url(#waveGradient)" opacity="0.2" d="M0,120 C320,160 480,80 960,120 C1440,160 1600,80 1920,120 V240 H0 Z">
+  </path>
+</svg>

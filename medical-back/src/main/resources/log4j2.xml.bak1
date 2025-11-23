@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 移除过时的 packages 属性 -->
+<Configuration status="debug" name="MyApp">
+    <Appenders>
+        <!-- 控制台输出（正确配置字符集） -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="[%p] [%d{yyyy-MM-dd HH:mm:ss}][%c - %L]%m%n" charset="UTF-8"/>
+        </Console>
+
+        <!-- 滚动文件输出（正确配置字符集） -->
+        <RollingFile name="File" fileName="D:/info.log" filePattern="D:/info-%d{yyyy-MM-dd}-%i.log">
+            <PatternLayout pattern="[%p] [%d{yyyy-MM-dd HH:mm:ss}][%c - %L]%m%n" charset="UTF-8"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10MB"/> <!-- 10MB 自动分割 -->
+            </Policies>
+            <DefaultRolloverStrategy max="10"/> <!-- 保留10个历史文件 -->
+        </RollingFile>
+
+        <!-- 远程 Syslog 输出（修正布局和 MDC 配置） -->
+        <SyslogAppender name="SYSLOG"
+                        host="47.122.118.231"
+                        port="514"
+                        protocol="UDP"
+                        facility="LOCAL2"
+                        includeMdc="true"
+                        charset="UTF-8" >
+            <PatternLayout pattern="[%p] [%d{yyyy-MM-dd HH:mm:ss}][%c - %L]%m%n" charset="UTF-8"/>
+        </SyslogAppender>
+    </Appenders>
+
+    <Loggers>
+        <!-- 自定义 Logger：仅输出指定类的日志 -->
+        <Logger name="cn.edu.ncu.medical.exception.GlobalExceptionHandler" level="ALL" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+            <AppenderRef ref="SYSLOG"/>
+        </Logger>
+        <!-- 根日志：关闭其他未指定类的日志输出 -->
+        <Root level="OFF">
+            <AppenderRef ref="Console"/>
+        </Root>
+
+    </Loggers>
+</Configuration>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.ncu.medical.mapper.DrugMapper">
+
+    <resultMap id="BaseResultMap" type="cn.edu.ncu.medical.entity.Drug">
+            <id property="id" column="id" jdbcType="INTEGER"/>
+            <result property="genericName" column="generic_name" jdbcType="VARCHAR"/>
+<!--            <result property="tradeName" column="trade_name" jdbcType="VARCHAR"/>-->
+<!--            <result property="dosageForm" column="dosage_form" jdbcType="VARCHAR"/>-->
+            <result property="specification" column="specification" jdbcType="VARCHAR"/>
+<!--            <result property="approvalNumber" column="approval_number" jdbcType="VARCHAR"/>-->
+<!--            <result property="manufacturer" column="manufacturer" jdbcType="VARCHAR"/>-->
+<!--            <result property="drugCategory" column="drug_category" jdbcType="VARCHAR"/>-->
+<!--            <result property="prescriptionType" column="prescription_type" jdbcType="INTEGER"/>-->
+            <result property="minimumSalesUnit" column="minimum_sales_unit" jdbcType="VARCHAR"/>
+<!--            <result property="packagingSpecification" column="packaging_specification" jdbcType="VARCHAR"/>-->
+            <result property="drugPrice" column="drug_price" jdbcType="DECIMAL"/>
+<!--            <result property="status" column="status" jdbcType="INTEGER"/>-->
+            <result property="quantity" column="quantity" jdbcType="INTEGER"/>
+            <result property="isPrescription" column="is_prescription" jdbcType="TINYINT"/>
+            <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
+            <result property="isDeleted" column="is_deleted" jdbcType="INTEGER"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,generic_name,trade_name,
+        dosage_form,specification,approval_number,
+        manufacturer,drug_category,prescription_type,
+        minimum_sales_unit,packaging_specification,drug_price,
+        status,quantity,is_prescription,
+        createTime,is_deleted
+    </sql>
+</mapper>

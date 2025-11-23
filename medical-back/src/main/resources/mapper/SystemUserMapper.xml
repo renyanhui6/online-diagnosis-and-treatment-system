@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.ncu.medical.mapper.SystemUserMapper">
+
+    <select id="selectByCondition" resultType="cn.edu.ncu.medical.entity.vo.SystemUserPage">
+        select  ROW_NUMBER() OVER (ORDER BY type) AS temp_id,a.id,a.userName,a.password,a.type,a.email,a.status,a.create_time,a.update_time
+        from system_user a
+        <if test="condition!=null">
+        <where>
+            and a.is_deleted = 0
+            <if test="condition.id!=null">
+                and a.id=#{condition.id}
+            </if>
+            <if test="condition.username!=null and condition.username.isEmpty()==false">
+                and a.username like concat('%',#{condition.username},'%')
+            </if>
+            <if test="condition.type!=null ">
+                and a.type=#{condition.type}
+            </if>
+            <if test="condition.email!=null and condition.email.isEmpty()==false">
+                and a.email=#{condition.email}
+            </if>
+            <if test="condition.status!=null">
+                and a.status=#{condition.status}
+            </if>
+            <if test="condition.createTime!=null">
+                and create_time>=#{condition.createTime}
+            </if>
+            <if test="condition.updateTime!=null">
+                and a.update_time>=#{condition.updateTime}
+            </if>
+
+        </where>
+
+        order by type
+        </if>
+    </select>
+    <select id="selectDoctorList"
+            resultType="cn.edu.ncu.medical.entity.SystemUser">
+        select * from system_user where type=2 and is_deleted=0
+    </select>
+</mapper>

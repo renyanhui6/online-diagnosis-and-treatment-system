@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.ncu.medical.mapper.MedicalRecordMapper">
+
+    <resultMap id="BaseResultMap" type="cn.edu.ncu.medical.entity.MedicalRecord">
+            <id property="id" column="id" jdbcType="INTEGER"/>
+            <result property="patientId" column="patient_id" jdbcType="INTEGER"/>
+            <result property="doctorId" column="doctor_id" jdbcType="INTEGER"/>
+            <result property="doctorDescription" column="doctor_description" jdbcType="VARCHAR"/>
+            <result property="isPurchasable" column="is_purchasable" jdbcType="INTEGER"/>
+            <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
+            <result property="isDeleted" column="is_deleted" jdbcType="INTEGER"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,patient_id,doctor_id,
+        doctor_description,is_purchasable,createTime,
+        is_deleted
+    </sql>
+
+
+
+    <!--    患者根据userID查询所有病历-->
+    <select id="selectMedicalRecordByUserId" resultType="cn.edu.ncu.medical.entity.vo.MedicalRecordInfo" >
+        select
+        mr.id AS medicalRecordId,
+        p.real_name AS patientName,
+        d.real_name AS doctorName,
+        mr.doctor_description AS doctorDescription,
+        mr.is_purchasable AS isPurchasable,
+        mr.create_time AS createTime
+
+        from patient_attendant p
+        INNER JOIN medical_record mr ON p.id = mr.patient_id
+        INNER JOIN doctor_detail d ON mr.doctor_id = d.id
+
+        where p.system_user_id = #{userId} and mr.is_deleted = 0
+          and p.is_deleted = 0 and d.is_deleted=0
+
+          <if test="medicalRecordCondition!=null">
+              <if test="medicalRecordCondition.startDate!=null">
+                  and mr.create_time &gt;= #{medicalRecordCondition.startDate}
+              </if>
+              <if test="medicalRecordCondition.endDate!=null">
+                  and mr.create_time &lt;= #{medicalRecordCondition.endDate}
+              </if>
+              <if test="medicalRecordCondition.patientName!=null">
+                  and p.real_name like #{medicalRecordCondition.patientName}
+              </if>
+              <if test="medicalRecordCondition.createTime!=null ">
+                  and DATE(mr.create_time) = DATE(#{medicalRecordCondition.createTime})
+              </if>
+              <if test="medicalRecordCondition.prescriptionStatus!=null">
+                  and mr.is_purchasable = #{medicalRecordCondition.prescriptionStatus}
+              </if>
+          </if>
+
+        order by mr.create_time ASC
+    </select>
+
+    <!--    医生根据doctorID查询所有病历-->
+    <select id="selectMedicalRecordByDoctorId" resultType="cn.edu.ncu.medical.entity.vo.MedicalRecordInfo" >
+        select
+        mr.id AS medicalRecordId,
+        p.real_name AS patientName,
+        d.real_name AS doctorName,
+        mr.doctor_description AS doctorDescription,
+        mr.is_purchasable AS isPurchasable,
+        mr.create_time AS createTime
+
+        from medical_record mr
+        INNER JOIN patient_attendant p ON p.id = mr.patient_id
+        INNER JOIN doctor_detail d ON mr.doctor_id = d.id
+
+        where mr.doctor_id = #{doctorId} and mr.is_deleted = 0
+          and p.is_deleted = 0 and d.is_deleted=0
+        <if test="medicalRecordCondition.patientName!=null">
+            and p.real_name like #{medicalRecordCondition.patientName}
+        </if>
+        <if test="medicalRecordCondition.createTime!=null">
+            and DATE(mr.create_time) = DATE(#{medicalRecordCondition.createTime})
+        </if>
+        <if test="medicalRecordCondition.prescriptionStatus!=null">
+            and mr.is_purchasable = #{medicalRecordCondition.prescriptionStatus}
+        </if>
+        order by mr.create_time ASC
+    </select>
+
+
+    <!--    根据病历ID查询处方信息-->
+    <select id="selectPrescriptionInfoByMedicalRecordId" resultType="cn.edu.ncu.medical.entity.vo.PrescriptionInfo">
+        select
+        pr.*,
+        mr.doctor_description AS doctorDescription,
+        mr.is_purchasable AS isPurchasable,
+        mr.create_time AS createTime,
+        d.generic_name AS drugName,
+        d.minimum_sales_unit AS minimumSalesUnit,
+        d.drug_price AS price,
+        case
+            when d.is_prescription = 1 then '处方药'
+            else '非处方药'
+            end AS isPrescription
+        from prescription pr
+        INNER JOIN medical_record mr ON pr.medical_record_id = mr.id
+        INNER JOIN drug d ON pr.drug_id = d.id
+        where pr.medical_record_id = #{medicalRecordId} and pr.is_deleted = 0
+        and d.is_deleted = 0 and mr.is_deleted =0
+        order by pr.create_time ASC
+    </select>
+</mapper>

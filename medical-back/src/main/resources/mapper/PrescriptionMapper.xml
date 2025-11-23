@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.ncu.medical.mapper.PrescriptionMapper">
+
+    <resultMap id="BaseResultMap" type="cn.edu.ncu.medical.entity.Prescription">
+            <id property="id" column="id" jdbcType="INTEGER"/>
+            <result property="drugId" column="drug_id" jdbcType="INTEGER"/>
+            <result property="drugQuantity" column="drug_quantity" jdbcType="INTEGER"/>
+            <result property="medicalRecordId" column="medical_record_id" jdbcType="INTEGER"/>
+            <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
+            <result property="isDeleted" column="is_deleted" jdbcType="INTEGER"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,drug_id,drug_quantity,
+        medical_record_id,createTime,is_deleted
+    </sql>
+
+
+    <select id="selectPrescriptionByMedicalRecordId" resultType="cn.edu.ncu.medical.entity.vo.PrescriptionInfo">
+        select
+        pr.id AS id,
+        d.generic_name AS drugName,
+        pr.drug_quantity AS drugQuantity,
+        d.minimum_sales_unit AS minimumSalesUnit,
+        case
+        when d.is_prescription = 1 then '处方药'
+        else '非处方药'
+        end AS isPrescription
+        from prescription pr
+        INNER JOIN drug d ON pr.drug_id = d.id
+        where pr.medical_record_id = #{medicalRecordId} and pr.is_deleted = 0
+          and d.is_deleted = 0
+    </select>
+</mapper>

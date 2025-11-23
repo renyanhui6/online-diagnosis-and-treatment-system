@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.ncu.medical.mapper.RegistrationMapper">
+
+    <resultMap id="BaseResultMap" type="cn.edu.ncu.medical.entity.Registration">
+            <id property="id" column="id" jdbcType="INTEGER"/>
+            <result property="doctorId" column="doctor_id" jdbcType="INTEGER"/>
+            <result property="patientId" column="patient_id" jdbcType="INTEGER"/>
+            <result property="createTime" column="creatTime" jdbcType="TIMESTAMP"/>
+            <result property="registrationStatus" column="registration_status" jdbcType="INTEGER"/>
+            <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
+            <result property="scheduleId" column="schedule_id" jdbcType="INTEGER"/>
+            <result property="isDeleted" column="is_deleted" jdbcType="INTEGER"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,doctor_id,patient_id,schedule_id,
+        creatTime,registration_status,updateTime,
+        is_deleted
+    </sql>
+
+
+<!--    用户根据userID查询挂号-->
+    <select id="selectRegistrationInfoList" resultType="cn.edu.ncu.medical.entity.vo.RegistrationInfo">
+        SELECT
+        r.id AS id,
+        p.real_name AS patientName,
+        s.department_name AS departmentName,
+        s.schedule_date AS scheduleDate,
+        s.doctor_name AS doctorName,
+        r.create_time AS createTime,
+        CASE
+        WHEN s.is_morning = 1 THEN '上午'
+        WHEN s.is_afternoon = 1 THEN '下午'
+        END AS timePeriod,
+        r.registration_status AS registrationStatus
+        FROM registration r
+        INNER JOIN patient_attendant p ON r.patient_id = p.id
+        INNER JOIN schedule s ON r.schedule_id = s.id
+        WHERE p.system_user_id = #{userId} and r.is_deleted = 0
+          and p.is_deleted =0 and s.is_deleted = 0
+
+        <if test="registrationCondition != null">
+            <if test="registrationCondition.startDate != null">
+                AND s.schedule_date &gt;= #{registrationCondition.startDate}
+            </if>
+            <if test="registrationCondition.endDate != null">
+                AND s.schedule_date &lt;= #{registrationCondition.endDate}
+            </if>
+            <if test="registrationCondition.registrationStatus != null">
+                AND r.registration_status = #{registrationCondition.registrationStatus}
+            </if>
+        </if>
+
+        ORDER BY s.schedule_date DESC
+    </select>
+
+
+    <!--    医生根据doctorID和scheduleId查询当天挂号-->
+    <select id="selectRegistrationInfoBySchedule" resultType="cn.edu.ncu.medical.entity.vo.RegistrationInfo">
+        SELECT
+        r.*,
+        p.real_name AS patient_name,
+        d.real_name AS doctor_name,
+        dept.department_name,
+        p.system_user_id AS patient_id
+        FROM registration r
+        JOIN patient_attendant p ON r.patient_id = p.id
+        JOIN schedule s ON r.schedule_id = s.id
+        JOIN doctor_detail d ON s.doctor_id = d.id
+        JOIN department dept ON d.sub_department_id = dept.id
+        where
+            r.schedule_id = #{scheduleId}
+        <if test="registrationCondition != null">
+            <if test="registrationCondition.registrationStatus != null">
+                AND r.registration_status = #{registrationCondition.registrationStatus}
+            </if>
+            <if test="registrationCondition.registrationStatus==null">
+                AND r.registration_status IN (2,3,5,6)
+            </if>
+        </if>
+        <if test="registrationCondition==null">
+            AND r.registration_status IN (2,3,5,6)
+        </if>
+        AND r.is_deleted = 0 and p.is_deleted = 0 and s.is_deleted = 0 and d.is_deleted = 0
+        ORDER BY r.id ASC
+    </select>
+
+    <!--    医生根据doctorID查询所有挂号2-6-->
+    <select id="selectAllRegistrationInfo" resultType="cn.edu.ncu.medical.entity.vo.RegistrationInfo">
+        SELECT r.*, p.real_name AS patientName,
+               d.real_name AS doctorName,
+               dept.department_name AS departmentName,
+               s.schedule_date AS scheduleDate,
+               case
+               when s.is_morning = 1 then '上午'
+               when s.is_afternoon = 1 then '下午'
+               end AS timePeriod
+        FROM registration r
+                 JOIN patient_attendant p ON r.patient_id = p.id
+                 JOIN doctor_detail d ON r.doctor_id = d.id
+                 JOIN department dept ON d.sub_department_id = dept.id
+                 JOIN schedule s ON r.schedule_id = s.id
+        WHERE r.doctor_id = #{doctorId}
+          AND r.is_deleted = 0
+          AND p.is_deleted = 0
+          AND d.is_deleted = 0
+          AND s.is_deleted = 0
+        <if test="registrationCondition != null">
+            <if test="registrationCondition.startDate != null">
+                AND s.schedule_date &gt;= #{registrationCondition.startDate}
+            </if>
+            <if test="registrationCondition.endDate != null">
+                AND s.schedule_date &lt;= #{registrationCondition.endDate}
+            </if>
+            <if test="registrationCondition.registrationStatus != null">
+                AND r.registration_status = #{registrationCondition.registrationStatus}
+            </if>
+            <if test="registrationCondition.registrationStatus==null">
+                AND r.registration_status IN (2,3,4,5,6)
+            </if>
+        </if>
+        <if test="registrationCondition==null">
+            AND r.registration_status IN (2,3,4,5,6)
+        </if>
+    </select>
+
+</mapper>

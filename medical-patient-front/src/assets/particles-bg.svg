@@ -1,0 +1,119 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- 粒子动画 -->
+    <filter id="blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" />
+    </filter>
+    
+    <!-- 粒子样式 -->
+    <radialGradient id="particleGlow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="1" />
+      <stop offset="100%" stop-color="#0ea5e9" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  
+  <!-- 粒子群组 -->
+  <g id="particles">
+    <!-- 粒子1 -->
+    <circle cx="200" cy="300" r="3" fill="url(#particleGlow)" filter="url(#blur)">
+      <animate attributeName="cy" values="300;280;300" dur="4s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.7;0.3;0.7" dur="4s" repeatCount="indefinite" />
+    </circle>
+    
+    <!-- 粒子2 -->
+    <circle cx="400" cy="200" r="2" fill="url(#particleGlow)" filter="url(#blur)">
+      <animate attributeName="cy" values="200;220;200" dur="5s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.5;0.2;0.5" dur="5s" repeatCount="indefinite" />
+    </circle>
+    
+    <!-- 粒子3 -->
+    <circle cx="600" cy="400" r="4" fill="url(#particleGlow)" filter="url(#blur)">
+      <animate attributeName="cy" values="400;380;400" dur="6s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.8;0.4;0.8" dur="6s" repeatCount="indefinite" />
+    </circle>
+    
+    <!-- 粒子4 -->
+    <circle cx="800" cy="300" r="3" fill="url(#particleGlow)" filter="url(#blur)">
+      <animate attributeName="cy" values="300;320;300" dur="7s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.6;0.3;0.6" dur="7s" repeatCount="indefinite" />
+    </circle>
+    
+    <!-- 粒子5 -->
+    <circle cx="1000" cy="500" r="2" fill="url(#particleGlow)" filter="url(#blur)">
+      <animate attributeName="cy" values="500;480;500" dur="8s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.5;0.2;0.5" dur="8s" repeatCount="indefinite" />
+    </circle>
+    
+    <!-- 粒子6 -->
+    <circle cx="1200" cy="200" r="4" fill="url(#particleGlow)" filter="url(#blur)">
+      <animate attributeName="cy" values="200;220;200" dur="5s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.7;0.3;0.7" dur="5s" repeatCount="indefinite" />
+    </circle>
+    
+    <!-- 粒子7 -->
+    <circle cx="1400" cy="400" r="3" fill="url(#particleGlow)" filter="url(#blur)">
+      <animate attributeName="cy" values="400;420;400" dur="6s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.6;0.3;0.6" dur="6s" repeatCount="indefinite" />
+    </circle>
+    
+    <!-- 粒子8 -->
+    <circle cx="1600" cy="300" r="2" fill="url(#particleGlow)" filter="url(#blur)">
+      <animate attributeName="cy" values="300;280;300" dur="7s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.5;0.2;0.5" dur="7s" repeatCount="indefinite" />
+    </circle>
+    
+    <!-- 粒子9 -->
+    <circle cx="1800" cy="500" r="4" fill="url(#particleGlow)" filter="url(#blur)">
+      <animate attributeName="cy" values="500;520;500" dur="8s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.8;0.4;0.8" dur="8s" repeatCount="indefinite" />
+    </circle>
+    
+    <!-- 粒子10 -->
+    <circle cx="300" cy="600" r="3" fill="url(#particleGlow)" filter="url(#blur)">
+      <animate attributeName="cy" values="600;580;600" dur="9s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.7;0.3;0.7" dur="9s" repeatCount="indefinite" />
+    </circle>
+    
+    <!-- 粒子11 -->
+    <circle cx="500" cy="700" r="2" fill="url(#particleGlow)" filter="url(#blur)">
+      <animate attributeName="cy" values="700;720;700" dur="6s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.5;0.2;0.5" dur="6s" repeatCount="indefinite" />
+    </circle>
+    
+    <!-- 粒子12 -->
+    <circle cx="700" cy="800" r="4" fill="url(#particleGlow)" filter="url(#blur)">
+      <animate attributeName="cy" values="800;780;800" dur="7s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.8;0.4;0.8" dur="7s" repeatCount="indefinite" />
+    </circle>
+    
+    <!-- 粒子13 -->
+    <circle cx="900" cy="700" r="3" fill="url(#particleGlow)" filter="url(#blur)">
+      <animate attributeName="cy" values="700;720;700" dur="8s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.6;0.3;0.6" dur="8s" repeatCount="indefinite" />
+    </circle>
+    
+    <!-- 粒子14 -->
+    <circle cx="1100" cy="800" r="2" fill="url(#particleGlow)" filter="url(#blur)">
+      <animate attributeName="cy" values="800;780;800" dur="9s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.5;0.2;0.5" dur="9s" repeatCount="indefinite" />
+    </circle>
+    
+    <!-- 粒子15 -->
+    <circle cx="1300" cy="600" r="4" fill="url(#particleGlow)" filter="url(#blur)">
+      <animate attributeName="cy" values="600;620;600" dur="6s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.7;0.3;0.7" dur="6s" repeatCount="indefinite" />
+    </circle>
+    
+    <!-- 粒子16 -->
+    <circle cx="1500" cy="700" r="3" fill="url(#particleGlow)" filter="url(#blur)">
+      <animate attributeName="cy" values="700;680;700" dur="7s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.6;0.3;0.6" dur="7s" repeatCount="indefinite" />
+    </circle>
+    
+    <!-- 粒子17 -->
+    <circle cx="1700" cy="800" r="2" fill="url(#particleGlow)" filter="url(#blur)">
+      <animate attributeName="cy" values="800;820;800" dur="8s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.5;0.2;0.5" dur="8s" repeatCount="indefinite" />
+    </circle>
+  </g>
+</svg>

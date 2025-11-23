@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.ncu.medical.mapper.ScheduleMapper">
+
+
+    <select id="existsSchedule" resultType="java.lang.Integer">
+            select count(*) from schedule
+            where doctor_id=#{doctorId} and schedule_date=#{scheduleDate} and is_morning=#{isMorning} and is_deleted = 0
+    </select>
+
+
+</mapper>

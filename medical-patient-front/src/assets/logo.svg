@@ -1,0 +1,30 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景圆形 -->
+  <circle cx="100" cy="100" r="90" fill="#0ea5e9" opacity="0.1" />
+  
+  <!-- 外环 -->
+  <circle cx="100" cy="100" r="80" fill="none" stroke="#0ea5e9" stroke-width="3" />
+  
+  <!-- 内环 -->
+  <circle cx="100" cy="100" r="70" fill="none" stroke="#0284c7" stroke-width="2" stroke-dasharray="10,5" />
+  
+  <!-- 十字医疗标志 -->
+  <rect x="85" y="60" width="30" height="80" rx="5" ry="5" fill="#0ea5e9" />
+  <rect x="60" y="85" width="80" height="30" rx="5" ry="5" fill="#0ea5e9" />
+  
+  <!-- 装饰性圆点 -->
+  <circle cx="60" cy="60" r="5" fill="#38bdf8" />
+  <circle cx="140" cy="60" r="5" fill="#38bdf8" />
+  <circle cx="60" cy="140" r="5" fill="#38bdf8" />
+  <circle cx="140" cy="140" r="5" fill="#38bdf8" />
+  
+  <!-- 连接线 -->
+  <line x1="65" y1="65" x2="85" y2="85" stroke="#38bdf8" stroke-width="2" />
+  <line x1="135" y1="65" x2="115" y2="85" stroke="#38bdf8" stroke-width="2" />
+  <line x1="65" y1="135" x2="85" y2="115" stroke="#38bdf8" stroke-width="2" />
+  <line x1="135" y1="135" x2="115" y2="115" stroke="#38bdf8" stroke-width="2" />
+  
+  <!-- 脉搏线 -->
+  <path d="M30,100 L50,100 L60,80 L70,120 L80,90 L90,110 L100,70 L110,130 L120,90 L130,110 L140,80 L150,100 L170,100" 
+        fill="none" stroke="#0ea5e9" stroke-width="2" />
+</svg>

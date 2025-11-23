@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.ncu.medical.mapper.ScheduleTemplateMapper">
+    <select id="findByWeekDay"
+            resultType="cn.edu.ncu.medical.entity.ScheduleTemplate">
+        select id,week_day,doctor_id,morning_limit,afternoon_limit,is_active
+        from schedule_template
+        where week_day = #{weekDay} and is_deleted=0
+    </select>
+    <select id="selectByPage"
+            resultType="cn.edu.ncu.medical.entity.ScheduleTemplate">
+        select id,week_day,doctor_id,morning_limit,afternoon_limit,is_active
+        from schedule_template where is_deleted=0
+        <if test="doctorId!=null">
+            and doctor_id=#{doctorId}
+        </if>
+    </select>
+</mapper>

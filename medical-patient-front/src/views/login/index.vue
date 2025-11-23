@@ -1,0 +1,342 @@
+<template>
+  <div class="login-container">
+    <div class="login-box">
+      <div class="login-header">
+        <img src="../../assets/logo.svg" alt="医院logo" class="logo" />
+        <h2>医院在线预约挂号系统</h2>
+      </div>
+      
+      <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules" class="login-form">
+        <el-form-item prop="username">
+          <el-input
+            v-model="loginForm.username"
+            placeholder="请输入账号"
+            prefix-icon="User"
+            clearable
+          />
+        </el-form-item>
+        
+        <el-form-item prop="password">
+          <el-input
+            v-model="loginForm.password"
+            type="password"
+            placeholder="请输入密码"
+            prefix-icon="Lock"
+            show-password
+            clearable
+            @keyup.enter="handleLogin"
+          />
+        </el-form-item>
+        
+        <el-form-item prop="captchaCode">
+          <div class="captcha-container">
+            <el-input
+              v-model="loginForm.captchaCode"
+              placeholder="请输入验证码"
+              prefix-icon="Key"
+              clearable
+            />
+            <div class="captcha-img" @click="refreshCaptcha">
+              <img :src="captchaImg" alt="验证码" />
+            </div>
+          </div>
+        </el-form-item>
+        
+        <el-form-item>
+          <el-button type="primary" :loading="loading" class="login-button" @click="handleLogin">
+            登录
+          </el-button>
+        </el-form-item>
+        
+        <div class="login-options">
+          <el-link type="primary" @click="goToRegister">注册账号</el-link>
+          <el-link type="primary" @click="goToForget">忘记密码</el-link>
+        </div>
+      </el-form>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { User, Lock, Key } from '@element-plus/icons-vue'
+import UserStorage from '../../utils/userStorage'
+import { login, getUserInfo } from '../../api/user'
+import { generateCaptcha } from '../../utils'
+
+const router = useRouter()
+
+// 登录表单
+const loginFormRef = ref(null)
+const loginForm = reactive({
+  username: '',
+  password: '',
+  captchaKey: '',
+  captchaCode: ''
+})
+
+// 验证规则
+const loginRules = {
+  username: [
+    { required: true, message: '请输入账号', trigger: 'blur' },
+    { min: 1, max: 20, message: '账号长度应为3-20个字符', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, max: 20, message: '密码长度应为6-20个字符', trigger: 'blur' }
+  ],
+  captchaCode: [
+    { required: true, message: '请输入验证码', trigger: 'blur' },
+    { min: 4, max: 4, message: '验证码长度不正确', trigger: 'blur' }
+  ]
+}
+
+// 加载状态
+const loading = ref(false)
+
+// 验证码图片
+const captchaImg = ref('')
+
+// 刷新验证码
+const refreshCaptcha = async () => {
+  try {
+    // 调用后端接口获取验证码
+    const res = await generateCaptcha()
+    if (res.code === 200 && res.data) {
+      // 设置验证码图片URL和key
+      captchaImg.value = res.data.code // code字段包含图片URL
+      loginForm.captchaKey = res.data.key // key字段是验证码的标识
+      loginForm.captchaCode = '' // 清空验证码输入
+      console.log('验证码已更新，key:', loginForm.captchaKey)
+    } else {
+      ElMessage.error('获取验证码失败')
+    }
+  } catch (error) {
+    console.error('获取验证码错误:', error)
+    ElMessage.error('获取验证码失败，请刷新页面重试')
+  }
+}
+
+// 登录处理
+const handleLogin = () => {
+  loginFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    
+    // 验证码key已在refreshCaptcha中设置
+    if (!loginForm.captchaKey) {
+      ElMessage.error('请先获取验证码')
+      refreshCaptcha() // 自动获取验证码
+      return
+    }
+    
+    // 构建符合后端要求的登录数据
+    const loginData = {
+      username: loginForm.username,
+      password: loginForm.password,
+      captcha: {
+        key: loginForm.captchaKey,
+        code: loginForm.captchaCode
+      }
+    }
+    
+    // 打印登录表单数据，用于调试
+    console.log('登录表单数据:', JSON.stringify(loginData))
+    
+    loading.value = true
+    
+    try {
+      // 调用登录接口
+      const res = await login(loginData)
+      console.log('登录响应:', res)
+      if (res.code === 200) {
+        // 保存token (JWT token已在请求拦截器中处理)
+        // 根据后端返回格式，token可能直接是data字段的值
+        const token = typeof res.data === 'string' ? res.data : res.data?.token || ''
+        console.log('登录成功，获取到token:', token)
+        UserStorage.setToken(token)
+        
+        // 确认token已保存到localStorage
+        console.log('登录后localStorage中的token:', UserStorage.getToken())
+        
+        // 获取用户信息
+        try {
+          console.log('=== 开始获取用户信息 ===')
+          console.log('当前token:', UserStorage.getToken())
+          
+          // 短暂延迟，确保token已被正确保存
+          await new Promise(resolve => setTimeout(resolve, 100))
+          
+          const userInfoRes = await getUserInfo()
+          console.log('获取用户信息响应:', userInfoRes)
+          console.log('响应状态码:', userInfoRes.code)
+          console.log('响应数据:', userInfoRes.data)
+          
+          if (userInfoRes.code === 200) {
+            const userData = userInfoRes.data || {}
+            console.log('准备保存的用户数据:', userData)
+            console.log('用户数据中的ID:', userData.id)
+            
+            if (!userData.id) {
+              console.error('警告：从后端获取的用户信息中没有ID字段！')
+              console.log('完整的用户数据:', JSON.stringify(userData))
+            }
+            
+            UserStorage.setUserInfo(userData)
+            console.log('用户信息已保存到localStorage')
+            
+            // 验证保存是否成功
+            console.log('验证：localStorage中的用户信息:', UserStorage.getUserInfo())
+            console.log('验证：localStorage中的用户ID:', UserStorage.getUserId())
+          } else {
+            console.error('获取用户信息失败，状态码:', userInfoRes.code)
+            console.error('错误信息:', userInfoRes.message)
+          }
+        } catch (userInfoError) {
+          console.error('获取用户信息失败:', userInfoError)
+          console.error('错误详情:', userInfoError.message)
+        }
+        
+        console.log('=== 登录流程完成 ===')
+        ElMessage.success('登录成功')
+        
+        // 检查是否有重定向参数
+        const redirect = router.currentRoute.value.query.redirect
+        if (redirect) {
+          console.log('检测到重定向参数，跳转到:', redirect)
+          router.push(redirect)
+        } else {
+          router.push('/')
+        }
+      } else {
+        ElMessage.error(res.message || '登录失败')
+        refreshCaptcha()
+      }
+    } catch (error) {
+      console.error('登录错误:', error)
+      ElMessage.error('登录失败，请稍后重试')
+      refreshCaptcha()
+    } finally {
+      loading.value = false
+    }
+  })
+}
+
+// 跳转到注册页
+const goToRegister = () => {
+  router.push('/register')
+}
+
+// 跳转到忘记密码页
+const goToForget = () => {
+  router.push('/forget')
+}
+
+// 页面加载时生成验证码
+onMounted(() => {
+  refreshCaptcha()
+})
+</script>
+
+<style scoped>
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 50%, #ddeeff 100%);
+  background-size: cover;
+  position: relative;
+}
+
+.login-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 30% 20%, rgba(135, 206, 250, 0.1) 0%, transparent 50%),
+              radial-gradient(circle at 70% 80%, rgba(173, 216, 230, 0.1) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.login-box {
+  width: 400px;
+  padding: 30px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(135, 206, 250, 0.2);
+  border: 1px solid rgba(135, 206, 250, 0.2);
+  position: relative;
+  z-index: 1;
+}
+
+.login-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.logo {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 16px;
+}
+
+.login-header h2 {
+  font-size: 24px;
+  color: #2c5aa0;
+  margin: 0 0 20px 0;
+  text-shadow: 0 1px 2px rgba(135, 206, 250, 0.1);
+}
+
+
+
+.login-form {
+  margin-top: 20px;
+}
+
+.captcha-container {
+  display: flex;
+  align-items: center;
+}
+
+.captcha-img {
+  margin-left: 10px;
+  cursor: pointer;
+  height: 40px;
+  width: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(135, 206, 250, 0.2);
+  transition: all 0.3s ease;
+}
+
+.captcha-img:hover {
+  box-shadow: 0 2px 8px rgba(135, 206, 250, 0.2);
+}
+
+.captcha-img img {
+  width: 100%;
+  height: 100%;
+}
+
+.login-button {
+  width: 100%;
+  height: 40px;
+  font-size: 16px;
+}
+
+.login-options {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+</style>
