@@ -8,6 +8,7 @@ import cn.edu.ncu.medical.result.ResultCodeEnum;
 
 import cn.edu.ncu.medical.service.RegistrationService;
 import cn.edu.ncu.medical.service.ScheduleService;
+import cn.edu.ncu.medical.schedule.ScheduleGenerator;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -16,7 +17,9 @@ import cn.edu.ncu.medical.entity.ScheduleTemplate;
 import cn.edu.ncu.medical.service.ScheduleTemplateService;
 import cn.edu.ncu.medical.mapper.ScheduleTemplateMapper;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +33,7 @@ import java.util.stream.Collectors;
  * @createDate 2025-07-31 00:43:27
  */
 @Service
+@Slf4j
 public class ScheduleTemplateServiceImpl extends ServiceImpl<ScheduleTemplateMapper, ScheduleTemplate> implements ScheduleTemplateService {
 	@Autowired
 	private ScheduleTemplateMapper scheduleTemplateMapper;
@@ -37,10 +41,29 @@ public class ScheduleTemplateServiceImpl extends ServiceImpl<ScheduleTemplateMap
 	private ScheduleService scheduleService;
 	@Autowired
 	private RegistrationService registrationService;
+	@Autowired(required = false)
+	private ScheduleGenerator scheduleGenerator;
+
+	@Value("${app.schedule.generate-days-ahead:7}")
+	private int scheduleDaysAhead;
 
 	@Override
 	public IPage<ScheduleTemplate> findByPage(IPage<ScheduleTemplate> page, Long doctorId) {
 		return scheduleTemplateMapper.selectByPage(page, doctorId);
+	}
+
+	@Transactional(rollbackFor = Exception.class)
+	@Override
+	public boolean save(ScheduleTemplate entity) {
+		boolean saved = super.save(entity);
+		if (saved && scheduleGenerator != null && entity != null && Integer.valueOf(1).equals(entity.getIsActive())) {
+			try {
+				scheduleGenerator.ensureSchedulesForNextDays(scheduleDaysAhead);
+			} catch (Exception e) {
+				log.warn("Ensure schedules after template save failed, templateId={}", entity.getId(), e);
+			}
+		}
+		return saved;
 	}
 
 	@Transactional(rollbackFor = Exception.class)
@@ -110,16 +133,30 @@ public class ScheduleTemplateServiceImpl extends ServiceImpl<ScheduleTemplateMap
 				.set(ScheduleTemplate::getIsActive, newStatus);
 		update(templateUpdate);
 
-		if (scheduleIds.isEmpty()) return;
-
 		// 5. 更新排班状态
-		LambdaUpdateWrapper<Schedule> scheduleUpdate = new LambdaUpdateWrapper<>();
-		scheduleUpdate.in(Schedule::getId, scheduleIds)
-				.set(Schedule::getStatus, newStatus == 1 ? 1 : 0);
-		scheduleService.update(scheduleUpdate);
+		if (!scheduleIds.isEmpty()) {
+			LambdaUpdateWrapper<Schedule> scheduleUpdate = new LambdaUpdateWrapper<>();
+			scheduleUpdate.in(Schedule::getId, scheduleIds)
+					.set(Schedule::getStatus, newStatus == 1 ? 1 : 0);
+			scheduleService.update(scheduleUpdate);
+		}
+
+		// 6. 若从“禁用 -> 启用”，补齐未来排班（避免错过凌晨任务导致未来几天无排班）
+		if (newStatus == 1) {
+			if (scheduleGenerator != null) {
+				try {
+					scheduleGenerator.ensureSchedulesForNextDays(scheduleDaysAhead);
+				} catch (Exception e) {
+					log.warn("Ensure schedules after template enable failed, templateId={}", id, e);
+				}
+			}
+		}
 	}
 
 	private void checkForExistingRegistrations(List<Long> scheduleIds) {
+		if (scheduleIds == null || scheduleIds.isEmpty()) {
+			return;
+		}
 		LambdaQueryWrapper<Registration> regQuery = new LambdaQueryWrapper<>();
 		regQuery.in(Registration::getScheduleId, scheduleIds)
 				.last("LIMIT 1");

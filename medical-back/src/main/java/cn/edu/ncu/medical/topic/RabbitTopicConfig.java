@@ -2,10 +2,12 @@ package cn.edu.ncu.medical.topic;
 
 import com.rabbitmq.client.AMQP;
 import org.springframework.amqp.core.*;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@ConditionalOnProperty(prefix = "app.rabbit", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class RabbitTopicConfig {
     public static final String ORDER_TOPIC_EXCHANGE = "order.topic.exchange";
 

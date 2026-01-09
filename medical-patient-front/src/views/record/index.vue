@@ -305,74 +305,67 @@ onMounted(() => {
 .record-container {
   max-width: 1200px;
   margin: 0 auto;
+  padding: 12px;
 }
 
 .record-card {
   margin-bottom: 20px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
-  border: 1px solid rgba(135, 206, 250, 0.2);
-  box-shadow: 0 4px 20px rgba(135, 206, 250, 0.1);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
 }
 
 .card-header h2 {
   margin: 0;
   font-size: 20px;
-  font-weight: 600;
-  color: #2c5aa0;
-  text-shadow: 0 1px 2px rgba(135, 206, 250, 0.1);
+  font-weight: 700;
+  color: var(--neutral-800);
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 15px;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .record-list {
-  min-height: 500px;
-  padding: 10px 0;
+  min-height: 520px;
+  padding: 6px 0;
 }
 
 .record-item-card {
   margin-bottom: 10px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
-  border: 1px solid rgba(135, 206, 250, 0.2);
-  box-shadow: 0 2px 12px rgba(135, 206, 250, 0.1);
-  transition: all 0.3s ease;
-}
-
-.record-item-card:hover {
-  box-shadow: 0 4px 20px rgba(135, 206, 250, 0.2);
-  background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%);
 }
 
 .record-item-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 12px;
   margin-bottom: 10px;
 }
 
 .record-item-title {
   display: flex;
-  align-items: center;
-  gap: 5px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .patient-name {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 16px;
-  color: #2c5aa0;
+  color: var(--neutral-800);
 }
 
 .doctor-name {
-  color: #4a6fa5;
+  color: var(--neutral-600);
   font-size: 14px;
 }
 
@@ -391,13 +384,13 @@ onMounted(() => {
 }
 
 .description-label {
-  font-weight: 500;
-  color: #2c5aa0;
+  font-weight: 600;
+  color: var(--neutral-700);
   margin-bottom: 5px;
 }
 
 .description-content {
-  color: #4a6fa5;
+  color: var(--neutral-600);
   line-height: 1.6;
 }
 
@@ -406,20 +399,21 @@ onMounted(() => {
 }
 
 .record-id {
-  font-weight: 500;
-  color: #2c5aa0;
+  font-weight: 600;
+  color: var(--neutral-700);
 }
 
 .doctor-description-detail {
-  background: #f8fbff;
+  background: rgb(var(--primary-50-rgb) / 0.6);
   padding: 15px;
-  border-radius: 8px;
-  border-left: 4px solid #0ea5e9;
+  border-radius: 10px;
+  border: 1px solid rgb(var(--primary-200-rgb) / 0.35);
+  border-left: 4px solid var(--primary-500);
   margin: 15px 0;
 }
 
 .doctor-description-detail .description-content {
-  color: #334155;
+  color: var(--neutral-700);
   line-height: 1.8;
   font-size: 14px;
 }
@@ -428,16 +422,18 @@ onMounted(() => {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
+  flex-wrap: wrap;
   margin-top: 20px;
 }
 
 .record-item-footer {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .pagination-container {
-  margin-top: 20px;
+  margin-top: 16px;
   display: flex;
   justify-content: flex-end;
 }

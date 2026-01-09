@@ -1,41 +1,127 @@
 package cn.edu.ncu.medical.utils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Component
+@Log4j2
 public class RedisCache {
-	@Autowired
-	private StringRedisTemplate stringRedisTemplate;
+	private final StringRedisTemplate stringRedisTemplate;
+	private final boolean fallbackEnabled;
 
-	private ObjectMapper objectMapper = new ObjectMapper();
+	private final ObjectMapper objectMapper = new ObjectMapper();
+
+	private final Map<String, InMemoryValue> inMemory = new ConcurrentHashMap<>();
+	private final Map<String, Map<String, Double>> inMemoryZSet = new ConcurrentHashMap<>();
+
+	public RedisCache(
+			@Autowired(required = false) StringRedisTemplate stringRedisTemplate,
+			@Value("${app.redis.fallback-enabled:false}") boolean fallbackEnabled
+	) {
+		this.stringRedisTemplate = stringRedisTemplate;
+		this.fallbackEnabled = fallbackEnabled;
+	}
+
+	private boolean canUseRedis() {
+		return stringRedisTemplate != null;
+	}
+
+	private void putInMemory(String key, String value) {
+		inMemory.put(key, new InMemoryValue(value, null));
+	}
+
+	private String getFromMemory(String key) {
+		InMemoryValue value = inMemory.get(key);
+		if (value == null) {
+			return null;
+		}
+		if (value.expireAtMillis != null && System.currentTimeMillis() > value.expireAtMillis) {
+			inMemory.remove(key);
+			return null;
+		}
+		return value.value;
+	}
+
+	private void expireInMemory(String key, Integer expire, TimeUnit timeUnit) {
+		InMemoryValue value = inMemory.get(key);
+		if (value == null) {
+			return;
+		}
+		long ttlMillis = timeUnit.toMillis(expire.longValue());
+		inMemory.put(key, new InMemoryValue(value.value, System.currentTimeMillis() + ttlMillis));
+	}
 
 	public RedisCache setString(String key, String value) {
-		stringRedisTemplate.opsForValue().set(key, value);
+		if (!canUseRedis()) {
+			if (fallbackEnabled) {
+				putInMemory(key, value);
+				return this;
+			}
+			throw new IllegalStateException("StringRedisTemplate not available");
+		}
+		try {
+			stringRedisTemplate.opsForValue().set(key, value);
+		} catch (RuntimeException ex) {
+			if (!fallbackEnabled) {
+				throw ex;
+			}
+			log.warn("Redis unavailable, fallback to in-memory for setString, key={}", key);
+			putInMemory(key, value);
+		}
 		return this;
 	}
 
 	public String getString(String key) {
-		return stringRedisTemplate.opsForValue().get(key);
+		if (!canUseRedis()) {
+			return fallbackEnabled ? getFromMemory(key) : null;
+		}
+		try {
+			return stringRedisTemplate.opsForValue().get(key);
+		} catch (RuntimeException ex) {
+			if (!fallbackEnabled) {
+				throw ex;
+			}
+			log.warn("Redis unavailable, fallback to in-memory for getString, key={}", key);
+			return getFromMemory(key);
+		}
 	}
 
 	public void setExpire(String key, Integer expire, TimeUnit timeUnit) {
-		stringRedisTemplate.expire(key, expire, timeUnit);
+		if (!canUseRedis()) {
+			if (fallbackEnabled) {
+				expireInMemory(key, expire, timeUnit);
+			}
+			return;
+		}
+		try {
+			stringRedisTemplate.expire(key, expire, timeUnit);
+		} catch (RuntimeException ex) {
+			if (!fallbackEnabled) {
+				throw ex;
+			}
+			log.warn("Redis unavailable, fallback to in-memory for expire, key={}", key);
+			expireInMemory(key, expire, timeUnit);
+		}
 	}
 
 	public RedisCache setObject(String key, Object object) throws Exception {
 		String value = objectMapper.writeValueAsString(object);
-		stringRedisTemplate.opsForValue().set(key, value);
+		setString(key, value);
 		return this;
 	}
 
 	public Object getObject(String key, Class<?> clazz) throws Exception {
-		String jsonObject = stringRedisTemplate.opsForValue().get(key);
+		String jsonObject = getString(key);
 		if (jsonObject == null) {
 			return null;
 		}
@@ -43,10 +129,26 @@ public class RedisCache {
 	}
 
 	public void delete(String key) {
-		if (Boolean.FALSE.equals(stringRedisTemplate.hasKey(key))) {
+		if (!canUseRedis()) {
+			if (fallbackEnabled) {
+				inMemory.remove(key);
+				inMemoryZSet.remove(key);
+			}
 			return;
 		}
-		stringRedisTemplate.delete(key);
+		try {
+			if (Boolean.FALSE.equals(stringRedisTemplate.hasKey(key))) {
+				return;
+			}
+			stringRedisTemplate.delete(key);
+		} catch (RuntimeException ex) {
+			if (!fallbackEnabled) {
+				throw ex;
+			}
+			log.warn("Redis unavailable, fallback to in-memory for delete, key={}", key);
+			inMemory.remove(key);
+			inMemoryZSet.remove(key);
+		}
 	}
 
 
@@ -60,7 +162,21 @@ public class RedisCache {
 	 * @param score 到期时间戳（毫秒）
 	 */
 	public void addToZSet(String key, String value, double score) {
-		stringRedisTemplate.opsForZSet().add(key, value, score);
+		if (!canUseRedis()) {
+			if (fallbackEnabled) {
+				inMemoryZSet.computeIfAbsent(key, k -> new ConcurrentHashMap<>()).put(value, score);
+			}
+			return;
+		}
+		try {
+			stringRedisTemplate.opsForZSet().add(key, value, score);
+		} catch (RuntimeException ex) {
+			if (!fallbackEnabled) {
+				throw ex;
+			}
+			log.warn("Redis unavailable, fallback to in-memory for zadd, key={}", key);
+			inMemoryZSet.computeIfAbsent(key, k -> new ConcurrentHashMap<>()).put(value, score);
+		}
 	}
 
 	/**
@@ -72,7 +188,39 @@ public class RedisCache {
 	 * @return 元素集合（订单ID字符串）
 	 */
 	public Set<String> rangeZSetByScore(String key, double minScore, double maxScore, long limit) {
-		return stringRedisTemplate.opsForZSet().rangeByScore(key, minScore, maxScore, 0, limit);
+		if (!canUseRedis()) {
+			if (!fallbackEnabled) {
+				return Set.of();
+			}
+			Map<String, Double> values = inMemoryZSet.get(key);
+			if (values == null || values.isEmpty()) {
+				return Set.of();
+			}
+			return values.entrySet().stream()
+					.filter(e -> e.getValue() >= minScore && e.getValue() <= maxScore)
+					.sorted(Map.Entry.comparingByValue())
+					.limit(limit)
+					.map(Map.Entry::getKey)
+					.collect(Collectors.toSet());
+		}
+		try {
+			return stringRedisTemplate.opsForZSet().rangeByScore(key, minScore, maxScore, 0, limit);
+		} catch (RuntimeException ex) {
+			if (!fallbackEnabled) {
+				throw ex;
+			}
+			log.warn("Redis unavailable, fallback to in-memory for zrangeByScore, key={}", key);
+			Map<String, Double> values = inMemoryZSet.get(key);
+			if (values == null || values.isEmpty()) {
+				return Set.of();
+			}
+			return values.entrySet().stream()
+					.filter(e -> e.getValue() >= minScore && e.getValue() <= maxScore)
+					.sorted(Map.Entry.comparingByValue())
+					.limit(limit)
+					.map(Map.Entry::getKey)
+					.collect(Collectors.toSet());
+		}
 	}
 
 	/**
@@ -82,8 +230,51 @@ public class RedisCache {
 	 * @return 成功删除的数量
 	 */
 	public Long removeFromZSet(String key, Object... values) {
-		return stringRedisTemplate.opsForZSet().remove(key, values);
+		if (!canUseRedis()) {
+			if (!fallbackEnabled) {
+				return 0L;
+			}
+			Map<String, Double> stored = inMemoryZSet.get(key);
+			if (stored == null || stored.isEmpty()) {
+				return 0L;
+			}
+			long removed = 0L;
+			for (Object v : values) {
+				if (v != null && stored.remove(String.valueOf(v)) != null) {
+					removed++;
+				}
+			}
+			return removed;
+		}
+		try {
+			return stringRedisTemplate.opsForZSet().remove(key, values);
+		} catch (RuntimeException ex) {
+			if (!fallbackEnabled) {
+				throw ex;
+			}
+			log.warn("Redis unavailable, fallback to in-memory for zrem, key={}", key);
+			Map<String, Double> stored = inMemoryZSet.get(key);
+			if (stored == null || stored.isEmpty()) {
+				return 0L;
+			}
+			long removed = 0L;
+			for (Object v : values) {
+				if (v != null && stored.remove(String.valueOf(v)) != null) {
+					removed++;
+				}
+			}
+			return removed;
+		}
 	}
 
+	private static class InMemoryValue {
+		private final String value;
+		private final Long expireAtMillis;
+
+		private InMemoryValue(String value, Long expireAtMillis) {
+			this.value = value;
+			this.expireAtMillis = expireAtMillis;
+		}
+	}
 
 }

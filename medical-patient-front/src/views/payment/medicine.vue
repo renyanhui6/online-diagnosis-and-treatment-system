@@ -653,13 +653,14 @@ onMounted(() => {
 .medicine-payment-container {
   max-width: 1200px;
   margin: 0 auto;
+  padding: 12px;
 }
 
 .payment-card {
   margin-bottom: 20px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
-  border: 1px solid rgba(135, 206, 250, 0.2);
-  box-shadow: 0 4px 20px rgba(135, 206, 250, 0.1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgb(var(--primary-50-rgb) / 0.55) 100%);
+  border: 1px solid rgb(var(--primary-200-rgb) / 0.22);
+  box-shadow: var(--shadow-lg);
 }
 
 .card-header {
@@ -672,8 +673,7 @@ onMounted(() => {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #2c5aa0;
-  text-shadow: 0 1px 2px rgba(135, 206, 250, 0.1);
+  color: var(--neutral-800);
 }
 
 .header-actions {
@@ -694,7 +694,7 @@ onMounted(() => {
 
 .medicine-count {
   font-size: 14px;
-  color: #4a6fa5;
+  color: var(--neutral-600);
 }
 
 .medicine-detail-list {
@@ -706,7 +706,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   padding: 10px 0;
-  border-bottom: 1px solid rgba(135, 206, 250, 0.1);
+  border-bottom: 1px solid rgb(var(--primary-200-rgb) / 0.22);
 }
 
 .medicine-detail-item:last-child {
@@ -721,40 +721,35 @@ onMounted(() => {
 .medicine-detail-name {
   font-size: 14px;
   font-weight: 500;
-  color: #2c5aa0;
+  color: var(--neutral-800);
 }
 
 .medicine-detail-spec {
   font-size: 12px;
-  color: #4a6fa5;
+  color: var(--neutral-600);
 }
 
 .medicine-detail-price {
   font-size: 14px;
   font-weight: 500;
-  color: #2c5aa0;
+  color: var(--neutral-800);
   margin-right: 10px;
 }
 
 .medicine-detail-quantity {
   font-size: 14px;
-  color: #4a6fa5;
+  color: var(--neutral-600);
   width: 40px;
   text-align: right;
 }
 
 .price {
   font-weight: 600;
-  color: #2c5aa0;
+  color: var(--warning);
 }
 
 .payment-method-select .el-icon {
   margin-right: 5px;
-}
-
-.price {
-  color: #e6a23c;
-  font-weight: 600;
 }
 
 .drug-total-row {
@@ -772,13 +767,13 @@ onMounted(() => {
 .total-label {
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: var(--neutral-800);
 }
 
 .total-amount {
   font-size: 18px;
   font-weight: 700;
-  color: #e6a23c;
+  color: var(--warning);
 }
 
 .loading-container {
@@ -808,9 +803,8 @@ onMounted(() => {
 .order-items h3 {
   font-size: 16px;
   font-weight: 600;
-  color: #2c5aa0;
+  color: var(--neutral-800);
   margin: 0 0 15px 0;
-  text-shadow: 0 1px 2px rgba(135, 206, 250, 0.1);
 }
 
 .drug-details-list {
@@ -834,12 +828,12 @@ onMounted(() => {
 .medicine-name {
   font-size: 14px;
   font-weight: 500;
-  color: #2c5aa0;
+  color: var(--neutral-800);
 }
 
 .medicine-spec {
   font-size: 12px;
-  color: #4a6fa5;
+  color: var(--neutral-600);
 }
 
 .order-actions {
@@ -857,7 +851,7 @@ onMounted(() => {
 .payment-amount {
   margin-bottom: 20px;
   font-size: 16px;
-  color: #2c5aa0;
+  color: var(--neutral-700);
 }
 
 /* 退款对话框样式 */

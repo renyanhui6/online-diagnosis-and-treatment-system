@@ -252,7 +252,7 @@ async function handleLogin() {
   width: 100%;
   position: relative;
   overflow: hidden;
-  background-color: #f0f2f5;
+  background-color: transparent;
 }
 
 .login-background {
@@ -276,7 +276,7 @@ async function handleLogin() {
 .circle {
   position: absolute;
   border-radius: 50%;
-  background: linear-gradient(45deg, #1890ff, #52c41a);
+  background: linear-gradient(45deg, var(--brand-600), var(--el-color-success));
   animation: float linear infinite;
   opacity: 0.2;
 }
@@ -320,9 +320,8 @@ async function handleLogin() {
 .title {
   font-size: 28px;
   font-weight: 600;
-  color: #1890ff;
   margin: 0;
-  background: linear-gradient(45deg, #1890ff, #52c41a);
+  background: linear-gradient(45deg, var(--brand-600), var(--el-color-success));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -330,21 +329,23 @@ async function handleLogin() {
 .login-form-container {
   width: 100%;
   padding: 40px;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  background: var(--app-surface);
+  border-radius: var(--app-radius);
+  border: 1px solid var(--app-border);
+  box-shadow: var(--app-shadow);
+  backdrop-filter: blur(10px);
   transition: all 0.3s;
 }
 
 .login-form-container:hover {
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--app-shadow);
   transform: translateY(-5px);
 }
 
 .welcome {
   font-size: 24px;
   font-weight: 500;
-  color: #333;
+  color: var(--app-text);
   margin-top: 0;
   margin-bottom: 30px;
   text-align: center;
@@ -408,19 +409,19 @@ async function handleLogin() {
 .captcha-image {
   width: 100px;
   height: 40px;
-  border: 1px solid #dcdfe6;
+  border: 1px solid var(--app-border);
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  background-color: #f5f7fa;
+  background-color: rgba(15, 23, 42, 0.03);
   transition: all 0.3s;
 }
 
 .captcha-image:hover {
-  border-color: #409eff;
-  background-color: #ecf5ff;
+  border-color: rgba(37, 99, 235, 0.55);
+  background-color: rgba(37, 99, 235, 0.06);
 }
 
 .captcha-image img {

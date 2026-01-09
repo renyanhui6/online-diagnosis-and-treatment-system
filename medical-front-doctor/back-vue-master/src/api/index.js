@@ -28,7 +28,7 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   response => {
     // 检查响应头中是否有新的token
-    const newToken = response.headers['new-access-token'];
+    const newToken = response.headers['new-access-key'] || response.headers['new-access-token'];
     if (newToken) {
       // 更新本地存储的token
       localStorage.setItem('token', newToken);

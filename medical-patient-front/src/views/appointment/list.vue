@@ -416,6 +416,7 @@ onMounted(() => {
 .appointment-list-container {
   max-width: 1200px;
   margin: 0 auto;
+  padding: 12px;
 }
 
 .appointment-list-card {
@@ -432,7 +433,7 @@ onMounted(() => {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #333;
+  color: var(--neutral-800);
 }
 
 .filter-container {
@@ -456,7 +457,7 @@ onMounted(() => {
 }
 
 .fee {
-  color: #ff7a45;
+  color: var(--warning);
   font-weight: 600;
 }
 
@@ -467,7 +468,7 @@ onMounted(() => {
 .payment-method h3 {
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: var(--neutral-800);
   margin: 0 0 10px 0;
 }
 

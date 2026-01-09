@@ -9,6 +9,10 @@ public class MyRuntimeException extends RuntimeException {
 	public MyRuntimeException(String message) {
 		super(message);
 	}
+	public MyRuntimeException(Integer code, String message) {
+		super(message);
+		this.code = code;
+	}
 	public MyRuntimeException(ResultCodeEnum resultCodeEnum) {
 		super(resultCodeEnum.getMessage());
 		this.code = resultCodeEnum.getCode();

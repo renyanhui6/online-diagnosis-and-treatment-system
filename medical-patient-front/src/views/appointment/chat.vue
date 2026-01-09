@@ -927,39 +927,48 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .chat-container {
-  max-width: 800px;
+  max-width: 980px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 12px;
 }
 
 .chat-card {
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-lg);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
 }
 
 .header-left {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .header-left h2 {
   margin: 0;
   font-size: 18px;
+  font-weight: 700;
+  color: var(--neutral-800);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chat-content {
-  height: 400px;
+  height: min(62vh, 640px);
   overflow-y: auto;
-  padding: 10px;
-  background-color: #f5f7fa;
-  border-radius: 4px;
+  padding: 14px;
+  background:
+    linear-gradient(180deg, rgb(var(--primary-50-rgb) / 0.55), rgba(255, 255, 255, 0.55));
+  border-radius: var(--radius-xl);
+  border: 1px solid rgb(var(--primary-200-rgb) / 0.22);
 }
 
 .waiting-tip {
@@ -973,6 +982,7 @@ onBeforeUnmount(() => {
 .queue-info {
   text-align: center;
   margin-top: 20px;
+  color: var(--neutral-600);
 }
 
 .message-list {
@@ -999,21 +1009,24 @@ onBeforeUnmount(() => {
 }
 
 .message-content {
-  max-width: 70%;
+  max-width: min(72%, 560px);
 }
 
 .doctor-message .message-content {
-  background-color: #fff;
-  border-radius: 8px 8px 8px 0;
-  padding: 10px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 14px 14px 14px 6px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
 }
 
 .patient-message .message-content {
-  background-color: #95ec69;
-  border-radius: 8px 8px 0 8px;
-  padding: 10px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background: linear-gradient(135deg, var(--primary-600), var(--primary-700));
+  color: #fff;
+  border-radius: 14px 14px 6px 14px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow-sm);
 }
 
 .message-info {
@@ -1021,7 +1034,11 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   margin-bottom: 5px;
   font-size: 12px;
-  color: #606266;
+  color: var(--neutral-500);
+}
+
+.patient-message .message-info {
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .message-body {
@@ -1032,16 +1049,20 @@ onBeforeUnmount(() => {
   line-height: 1.5;
 }
 
+.patient-message .text-message {
+  color: rgba(255, 255, 255, 0.95);
+}
+
 .image-message .el-image {
   max-width: 200px;
-  border-radius: 4px;
+  border-radius: 10px;
   overflow: hidden;
 }
 
 .system-message {
   text-align: center;
   margin: 10px 0;
-  color: #909399;
+  color: var(--neutral-500);
   font-size: 12px;
 }
 
@@ -1050,6 +1071,12 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius-xl);
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgb(var(--primary-200-rgb) / 0.22);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(10px);
 }
 
 .input-toolbar {
@@ -1065,6 +1092,19 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: flex-end;
   margin-top: 10px;
+}
+
+@media (max-width: 768px) {
+  .chat-container {
+    padding: 8px;
+  }
+  .chat-content {
+    height: min(70vh, 620px);
+    padding: 12px;
+  }
+  .message-content {
+    max-width: 84%;
+  }
 }
 
 .medical-record {
@@ -1098,7 +1138,7 @@ onBeforeUnmount(() => {
 }
 
 .fee {
-  color: #f56c6c;
+  color: var(--warning);
   font-size: 16px;
 }
 </style>

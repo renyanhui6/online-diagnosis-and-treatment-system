@@ -238,7 +238,7 @@ onMounted(() => {
   margin-bottom: 15px;
   width: 100%;
   box-sizing: border-box;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(var(--primary-100), 0.8) 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.86) 0%, rgb(var(--primary-100-rgb) / 0.55) 100%);
 }
 
 .header:hover {
@@ -255,7 +255,7 @@ onMounted(() => {
   overflow-y: auto;
   width: 100%;
   box-sizing: border-box;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(var(--primary-50), 0.8) 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.86) 0%, rgb(var(--primary-50-rgb) / 0.55) 100%);
 }
 
 .content:hover {
@@ -274,7 +274,7 @@ onMounted(() => {
   font-size: 14px;
   width: 100%;
   box-sizing: border-box;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(var(--primary-100), 0.8) 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.86) 0%, rgb(var(--primary-100-rgb) / 0.55) 100%);
 }
 
 .footer:hover {
@@ -412,12 +412,12 @@ onMounted(() => {
   cursor: pointer;
   padding: 5px 10px;
   border-radius: var(--radius-full);
-  background: rgba(var(--primary-50), 0.2);
+  background: rgb(var(--primary-50-rgb) / 0.2);
   transition: var(--transition);
 }
 
 .user-info:hover {
-  background: rgba(var(--primary-50), 0.3);
+  background: rgb(var(--primary-50-rgb) / 0.3);
 }
 
 .username {

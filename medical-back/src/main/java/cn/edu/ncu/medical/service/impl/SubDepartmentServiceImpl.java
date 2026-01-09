@@ -58,8 +58,7 @@ public class SubDepartmentServiceImpl extends ServiceImpl<SubDepartmentMapper, S
 		if (!suffix.contains(imageFile.getOriginalFilename().substring(imageFile.getOriginalFilename().lastIndexOf(".")+1))) {
 			throw new MyRuntimeException(ResultCodeEnum.PARAM_ERROR);
 		}
-		String token = UploadUtil.uploadToken(uploadConfig);
-		String path = UploadUtil.putPhoto(imageFile.getInputStream(), UUID.randomUUID()+":"+imageFile.getOriginalFilename(), token);
+		String path = UploadUtil.putPhoto(uploadConfig, imageFile.getInputStream(), UUID.randomUUID() + ":" + imageFile.getOriginalFilename());
 		//最后把数据写入数据库
 		SubDepartment subDepartment = new SubDepartment();
 		subDepartment.setDepartmentName(subDepartmentModel.getDepartmentName());
@@ -71,7 +70,6 @@ public class SubDepartmentServiceImpl extends ServiceImpl<SubDepartmentMapper, S
 		subDepartmentMapper.insert(subDepartment);
 	}
 }
-
 
 
 

@@ -1,5 +1,6 @@
 package cn.edu.ncu.medical.websocket;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -9,6 +10,7 @@ import org.springframework.data.redis.listener.RedisMessageListenerContainer;
  * Redis监听器配置
  */
 @Configuration
+@ConditionalOnProperty(prefix = "app.redis", name = "listener-enabled", havingValue = "true", matchIfMissing = true)
 public class WebRedisListenerConfig {
 
     @Bean

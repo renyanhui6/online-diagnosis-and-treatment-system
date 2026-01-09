@@ -17,9 +17,12 @@ import cn.edu.ncu.medical.mapper.RegistrationMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.sql.Date;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -93,20 +96,31 @@ public class RegistrationServiceImpl extends ServiceImpl<RegistrationMapper, Reg
         //     * 6-“已回归”
 
 
-        int currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
+        LocalTime now = LocalTime.now();
         Integer isMorning = 0;
         Integer isAfternoon = 0;
-        if(currentHour < 12)
+        if (now.isBefore(LocalTime.NOON)) {
             isMorning = 1;
-        else if(currentHour > 12 && currentHour < 18)
+        } else if (now.isBefore(LocalTime.of(18, 0))) {
             isAfternoon = 1;
-        queryWrapper.eq(Schedule::getIsMorning,isMorning);
-        queryWrapper.eq(Schedule::getIsAfternoon,isAfternoon);
-        queryWrapper.eq(Schedule::getScheduleDate,localDate);
+        } else {
+            // 下班后无“当前场次”
+            Page<RegistrationInfo> empty = new Page<>(page.getCurrent(), page.getSize());
+            empty.setRecords(Collections.emptyList());
+            empty.setTotal(0);
+            return empty;
+        }
+
+        queryWrapper.eq(Schedule::getIsMorning, isMorning);
+        queryWrapper.eq(Schedule::getIsAfternoon, isAfternoon);
+        queryWrapper.eq(Schedule::getScheduleDate, Date.valueOf(localDate));
         Schedule schedule = scheduleMapper.selectOne(queryWrapper);
         if(schedule == null){
             //当前时间没有预约
-            return  null;
+            Page<RegistrationInfo> empty = new Page<>(page.getCurrent(), page.getSize());
+            empty.setRecords(Collections.emptyList());
+            empty.setTotal(0);
+            return empty;
         }
         Long scheduleId = schedule.getId();
 

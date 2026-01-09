@@ -260,7 +260,7 @@ onBeforeUnmount(() => {
 
 .forget-header h2 {
   font-size: 24px;
-  color: #1890ff;
+  color: var(--primary-700);
   margin: 0;
 }
 
@@ -281,7 +281,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f0f2f5;
+  background-color: var(--primary-100);
   border-radius: 4px;
   overflow: hidden;
 }

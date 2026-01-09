@@ -21,6 +21,11 @@ public class AuthenticInterceptor implements HandlerInterceptor {
     private RedisCache redisCache;
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        // CORS 预检请求直接放行，避免被鉴权拦截导致前端跨域失败
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+
         //获取token
         String token = request.getHeader("access-key");
         // 2. 验证并解析Token (已有逻辑)
@@ -28,7 +33,8 @@ public class AuthenticInterceptor implements HandlerInterceptor {
         String s = claims.get("username", String.class);
         Long l = claims.get("userId", Long.class);
         // 3. 验证Redis中的Token一致性 (已有逻辑)
-        if (!redisCache.getString( RedisConstant.LOGIN_TOKEN_PREFIX +l).equals(token)) {
+        String redisToken = redisCache.getString(RedisConstant.LOGIN_TOKEN_PREFIX + l);
+        if (redisToken == null || !redisToken.equals(token)) {
             throw new LoginException(ResultCodeEnum.FRONT_LOGIN_AUTH);
         }
         LoginUserHolder.setLoginUser(new LoginUser(l, s));

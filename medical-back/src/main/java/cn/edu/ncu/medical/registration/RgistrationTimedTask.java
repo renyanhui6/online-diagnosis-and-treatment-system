@@ -5,17 +5,27 @@ import cn.edu.ncu.medical.entity.Registration;
 import cn.edu.ncu.medical.entity.Schedule;
 import cn.edu.ncu.medical.service.RegistrationService;
 import cn.edu.ncu.medical.service.ScheduleService;
+import cn.edu.ncu.medical.utils.ScheduleTimePolicy;
+import lombok.extern.slf4j.Slf4j;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
 
+@Slf4j
 @Component
+@ConditionalOnProperty(prefix = "app.registration", name = "reconcile-enabled", havingValue = "true", matchIfMissing = true)
 public class RgistrationTimedTask {
 
     @Autowired
@@ -23,84 +33,94 @@ public class RgistrationTimedTask {
 
     @Autowired
     private ScheduleService scheduleService;
+
     /**
-     * 每天中午12点和下午6点将挂起号变为失效号
-     * cron表达式：秒 分 时 日 月 周
-     * 0 0 12,18 * * ? 表示每天12:00和18:00执行
+     * 旧实现依赖“精确命中 08:00/12:00/14:00/18:00”去推进状态：
+     * - 服务如果宕机/错过定时点，会导致状态永远卡住。
+     *
+     * 新实现改为“补偿式对账”：固定间隔扫描近几天排班，按当前时间推导应当推进的状态并批量更新。
      */
+    private final Clock clock = Clock.systemDefaultZone();
 
-    @Scheduled(cron = "0 0 12,18 * * ?")
-    public void updateRegistrationStatusToInvalid() {
-        //先根据上午加当天日期查询挂号信息
-        LocalDate today = LocalDate.now();
-
-        LocalTime currentTime = LocalTime.now();
-
-        // 根据当前时间判断是上午场还是下午场
-        boolean isMorningSession = currentTime.equals(LocalTime.of(12, 0));
-
-        LambdaQueryWrapper<Schedule> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(Schedule::getIsDeleted, 0)
-                .eq(Schedule::getScheduleDate, today);
-
-        if(isMorningSession){
-            queryWrapper.eq(Schedule::getIsMorning, 1);
-        }else{
-            queryWrapper.eq(Schedule::getIsAfternoon, 1);
-        }
-
-
-        List<Schedule> scheduleList = scheduleService.list(queryWrapper);
-        for (Schedule schedule : scheduleList) {
-            LambdaQueryWrapper<Registration> registrationQueryWrapper = new LambdaQueryWrapper<>();
-            registrationQueryWrapper.eq(Registration::getScheduleId, schedule.getId())
-                    .eq(Registration::getIsDeleted, 0)
-                    .eq(Registration::getRegistrationStatus,RegistrationStatus.SUSPENDED.getCode());//挂起号
-            List<Registration> registrationList = registrationService.list(registrationQueryWrapper);
-            for (Registration registration : registrationList) {
-                registration.setRegistrationStatus(RegistrationStatus.INVALID.getCode());//失效号
-                registrationService.updateById(registration);
-            }
-        }
+    @EventListener(ApplicationReadyEvent.class)
+    public void reconcileOnStartup() {
+        reconcileRegistrationStatus("startup");
     }
 
-    /**
-     * 每天早上8点和下午2点将已支付的挂号变为排队中
-     * cron表达式：0 0 8 * * ? 表示每天8:00执行
-     */
-    @Scheduled(cron = "0 0 8,14 * * ?")
-    public void updateRegistrationToQueuing(){
+    @Scheduled(fixedDelayString = "${app.registration.reconcile-interval-ms:300000}")
+    public void reconcilePeriodically() {
+        reconcileRegistrationStatus("periodic");
+    }
 
-        LocalDate today = LocalDate.now();
+    private void reconcileRegistrationStatus(String trigger) {
+        try {
+            ZoneId zoneId = clock.getZone();
+            LocalDateTime now = LocalDateTime.now(clock);
 
-        LocalTime currentTime = LocalTime.now();
+            LocalDate today = LocalDate.now(clock);
+            LocalDate from = today.minusDays(7);
 
+            Date fromDate = java.sql.Date.valueOf(from);
+            Date toDate = java.sql.Date.valueOf(today);
 
-        // 根据当前时间判断是上午场还是下午场
-        boolean isMorningSession = currentTime.equals(LocalTime.of(8, 0));
+            LambdaQueryWrapper<Schedule> scheduleQuery = new LambdaQueryWrapper<>();
+            scheduleQuery.eq(Schedule::getIsDeleted, 0)
+                    .ge(Schedule::getScheduleDate, fromDate)
+                    .le(Schedule::getScheduleDate, toDate);
 
-        LambdaQueryWrapper<Schedule> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(Schedule::getIsDeleted, 0)
-                .eq(Schedule::getScheduleDate, today);
-
-        if(isMorningSession){
-            queryWrapper.eq(Schedule::getIsMorning, 1);
-        }else{
-            queryWrapper.eq(Schedule::getIsAfternoon, 1);
-        }
-
-
-        List<Schedule> scheduleList = scheduleService.list(queryWrapper);
-        for (Schedule schedule : scheduleList) {
-            LambdaQueryWrapper<Registration> registrationQueryWrapper = new LambdaQueryWrapper<>();
-            registrationQueryWrapper.eq(Registration::getScheduleId, schedule.getId())
-                    .eq(Registration::getIsDeleted, 0)
-                    .eq(Registration::getRegistrationStatus,RegistrationStatus.PAID.getCode());//已支付
-            List<Registration> registrationList = registrationService.list(registrationQueryWrapper);
-            for (Registration registration : registrationList) {
-                registration.setRegistrationStatus(RegistrationStatus.QUEUING.getCode());//排队中
-                registrationService.updateById(registration);
+            List<Schedule> schedules = scheduleService.list(scheduleQuery);
+            if (schedules == null || schedules.isEmpty()) {
+                return;
             }
+
+            for (Schedule schedule : schedules) {
+                if (schedule == null || schedule.getScheduleDate() == null) {
+                    continue;
+                }
+
+                ScheduleTimePolicy.Session session;
+                try {
+                    session = ScheduleTimePolicy.resolveSession(schedule);
+                } catch (IllegalArgumentException e) {
+                    log.warn("Skip invalid schedule session flags, scheduleId={}", schedule.getId());
+                    continue;
+                }
+
+                LocalDate scheduleDate = ScheduleTimePolicy.toLocalDate(schedule.getScheduleDate(), zoneId);
+                LocalDateTime start = ScheduleTimePolicy.sessionStart(scheduleDate, session);
+                LocalDateTime end = ScheduleTimePolicy.sessionEnd(scheduleDate, session);
+
+                // 1) 开诊后：PAID/RESUMED -> QUEUING
+                if (!now.isBefore(start) && now.isBefore(end)) {
+                    LambdaUpdateWrapper<Registration> toQueuing = new LambdaUpdateWrapper<>();
+                    toQueuing.eq(Registration::getScheduleId, schedule.getId())
+                            .eq(Registration::getIsDeleted, 0)
+                            .in(Registration::getRegistrationStatus,
+                                    RegistrationStatus.PAID.getCode(),
+                                    RegistrationStatus.RESUMED.getCode())
+                            .set(Registration::getRegistrationStatus, RegistrationStatus.QUEUING.getCode())
+                            .set(Registration::getUpdateTime, new Date());
+                    registrationService.update(toQueuing);
+                }
+
+                // 2) 下诊后：把仍未完成的号统一置为 INVALID，避免“错过定时点后永久卡死”
+                if (!now.isBefore(end)) {
+                    LambdaUpdateWrapper<Registration> toInvalid = new LambdaUpdateWrapper<>();
+                    toInvalid.eq(Registration::getScheduleId, schedule.getId())
+                            .eq(Registration::getIsDeleted, 0)
+                            .in(Registration::getRegistrationStatus,
+                                    RegistrationStatus.PENDING_PAYMENT.getCode(),
+                                    RegistrationStatus.PAID.getCode(),
+                                    RegistrationStatus.QUEUING.getCode(),
+                                    RegistrationStatus.SUSPENDED.getCode(),
+                                    RegistrationStatus.RESUMED.getCode())
+                            .set(Registration::getRegistrationStatus, RegistrationStatus.INVALID.getCode())
+                            .set(Registration::getUpdateTime, new Date());
+                    registrationService.update(toInvalid);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Reconcile registration status failed (trigger={})", trigger, e);
         }
     }
 }

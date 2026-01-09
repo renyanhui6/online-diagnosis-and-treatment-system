@@ -1435,52 +1435,124 @@ function handleStorageChange(event) {
 
 <style scoped>
 .consultations-container {
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 16px 18px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  box-shadow: var(--app-shadow-sm);
+  backdrop-filter: blur(10px);
 }
 
 .page-header h2 {
   margin: 0;
-  font-size: 24px;
-  font-weight: 500;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
 }
 
 .header-actions {
   display: flex;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .consultation-card {
-  margin-bottom: 20px;
+  border-radius: var(--app-radius);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 0;
+}
+
+.pending-consultations {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.consultation-item {
+  cursor: pointer;
+  border-radius: var(--app-radius);
+  border: 1px solid var(--app-border);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: var(--app-shadow-sm);
+  padding: 14px;
+  transition: transform var(--app-transition), box-shadow var(--app-transition), border-color var(--app-transition);
+}
+
+.consultation-item:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--app-shadow);
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+.consultation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
 }
 
 .patient-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  min-width: 0;
 }
 
-.table-actions {
-  display: flex;
-  gap: 8px;
+.patient-detail {
+  min-width: 0;
 }
 
-.pagination-container {
-  margin-top: 20px;
+.patient-detail h4 {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--app-text);
+}
+
+.patient-detail p {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: 13px;
+}
+
+.consultation-content {
+  margin-bottom: 10px;
+}
+
+.consultation-content p {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: 13px;
+}
+
+.consultation-actions {
   display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .waiting-status {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  align-items: center;
+  align-items: flex-end;
 }
 
 .waiting-status .el-tag {
@@ -1488,217 +1560,101 @@ function handleStorageChange(event) {
   padding: 4px 8px;
 }
 
-/* 问诊详情样式 */
+.table-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pagination-container {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 问诊详情（抽屉） */
 .consultation-detail {
-  padding: 0 20px;
+  padding: 20px;
 }
 
 .detail-header {
   display: flex;
   align-items: center;
-  padding-bottom: 16px;
-}
-
-.patient-detail {
-  margin-left: 16px;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
 .patient-detail h3 {
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
   font-size: 18px;
-  font-weight: 500;
+  font-weight: 800;
 }
 
 .patient-detail p {
-  margin: 0 0 8px 0;
-  color: #606266;
-  font-size: 14px;
+  margin: 0 0 6px 0;
+  color: var(--app-text-muted);
+  font-size: 13px;
 }
 
 .tag-group {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .detail-content {
-  padding: 16px 0;
+  margin-bottom: 16px;
 }
 
 .detail-item {
-  margin-bottom: 12px;
   display: flex;
+  margin-bottom: 10px;
+  align-items: center;
 }
 
 .item-label {
-  width: 100px;
-  color: #909399;
-  font-size: 14px;
+  min-width: 96px;
+  color: var(--app-text-muted);
+  font-size: 13px;
 }
 
 .item-value {
+  color: var(--app-text);
+  font-size: 13px;
   flex: 1;
-  font-size: 14px;
 }
 
 .detail-actions {
   display: flex;
-  justify-content: flex-end;
   gap: 12px;
-  margin-top: 20px;
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 
 /* 统计卡片样式 */
 .statistics-container {
-  padding: 20px 0;
+  padding: 16px 0 0;
 }
 
 .stat-card {
   height: 120px;
   display: flex;
   align-items: center;
-  margin-left: auto;
 }
 
-.consultations-container {
-  padding: 20px;
-}
-
-.consultation-card {
-  margin-top: 20px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 40px;
-}
-
-.pending-consultations {
-  display: grid;
-  gap: 16px;
-}
-
-.consultation-item {
-  border: 1px solid #e4e7ed;
-  border-radius: 8px;
-  padding: 16px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.consultation-item:hover {
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  border-color: #409eff;
-}
-
-.consultation-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.patient-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.patient-detail h4 {
-  margin: 0 0 4px 0;
-  font-size: 16px;
-  font-weight: 500;
-}
-
-.patient-detail p {
-  margin: 0;
-  color: #666;
-  font-size: 14px;
-}
-
-.consultation-content {
-  margin-bottom: 12px;
-}
-
-.consultation-content p {
-  margin: 0;
-  color: #666;
-}
-
-.consultation-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.pagination-container {
-  margin-top: 20px;
-  text-align: right;
-}
-
-.consultation-detail {
-  padding: 20px;
-}
-
-.detail-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.patient-detail h3 {
-  margin: 0 0 8px 0;
-  font-size: 18px;
-  font-weight: 500;
-}
-
-.patient-detail p {
-  margin: 0 0 8px 0;
-  color: #666;
-}
-
-.tag-group {
-  display: flex;
-  gap: 8px;
-}
-
-.detail-content {
-  margin-bottom: 20px;
-}
-
-.detail-item {
-  display: flex;
-  margin-bottom: 12px;
-  align-items: center;
-}
-
-.item-label {
-  font-weight: 500;
-  color: #333;
-  min-width: 100px;
-  margin-right: 12px;
-}
-
-.item-value {
-  color: #666;
-  flex: 1;
-}
-
-.detail-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  margin-top: 20px;
-}
-
-.table-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.patient-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+@media (max-width: 960px) {
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .header-actions {
+    justify-content: flex-start;
+  }
+  .pending-consultations {
+    grid-template-columns: 1fr;
+  }
+  .waiting-status {
+    align-items: flex-start;
+  }
 }
 </style>

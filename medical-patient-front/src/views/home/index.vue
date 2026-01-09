@@ -237,8 +237,8 @@ onMounted(async () => {
 <style scoped>
 .home-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 30%, #93c5fd 70%, #60a5fa 100%);
-  padding: 20px;
+  background: transparent;
+  padding: 12px;
   position: relative;
   overflow-x: hidden;
 }
@@ -250,10 +250,10 @@ onMounted(async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: 
-    radial-gradient(circle at 25% 25%, rgba(37, 99, 235, 0.2) 0%, transparent 50%),
-    radial-gradient(circle at 75% 75%, rgba(29, 78, 216, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+  background:
+    radial-gradient(circle at 25% 25%, rgb(var(--primary-200-rgb) / 0.18) 0%, transparent 55%),
+    radial-gradient(circle at 75% 75%, rgb(var(--primary-300-rgb) / 0.12) 0%, transparent 55%),
+    radial-gradient(circle at 50% 50%, rgb(var(--primary-100-rgb) / 0.12) 0%, transparent 70%);
   pointer-events: none;
   animation: backgroundPulse 10s ease-in-out infinite;
 }
@@ -323,7 +323,7 @@ onMounted(async () => {
   margin-bottom: 24px;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
   animation: slideInLeft 1s ease-out 0.2s both;
-  color: #f0f8ff;
+  color: rgb(var(--primary-50-rgb) / 0.95);
 }
 
 .banner-btn {

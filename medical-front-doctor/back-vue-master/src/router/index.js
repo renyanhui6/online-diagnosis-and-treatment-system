@@ -15,7 +15,13 @@ const doctorRoutes = [
     children: [
       {
         path: '',
-        redirect: '/doctor/appointments'
+        redirect: '/doctor/dashboard'
+      },
+      {
+        path: 'dashboard',
+        name: 'DoctorDashboard',
+        component: () => import('../views/doctor/Dashboard.vue'),
+        meta: { title: '工作台' }
       },
       {
         path: 'appointments',

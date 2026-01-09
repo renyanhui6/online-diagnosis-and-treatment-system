@@ -111,11 +111,11 @@
                 <el-empty v-if="patientsList.length === 0" description="暂无就诊人信息" />
                 
                 <div v-else class="patients-list">
-                  <el-card 
-                    v-for="patient in patientsList" 
-                    :key="patient.id" 
+                  <el-card
+                    v-for="patient in patientsList"
+                    :key="patient.id"
                     class="patient-card"
-                    :class="{ 'is-default': patient.isDefault }"
+                    :class="{ 'is-default': patient.isMaster === 1 }"
                   >
                     <div class="patient-info">
                       <div class="patient-name">
@@ -127,6 +127,7 @@
                     
                     <div class="patient-actions">
                       <el-popconfirm
+                        v-if="patient.isMaster !== 1"
                         title="确定删除该就诊人信息吗？"
                         @confirm="deletePatient(patient.id)"
                       >
@@ -220,13 +221,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, reactive, onMounted, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import UserStorage from '../../utils/userStorage'
 import request from '../../api/request'
 
 const router = useRouter()
+const route = useRoute()
 
 
 
@@ -241,7 +243,7 @@ const userInfo = ref({
 })
 
 // 标签页
-const activeTab = ref('info')
+const activeTab = ref(route.query.tab === 'patients' ? 'patients' : 'info')
 
 // 编辑状态
 const isEditing = ref(false)
@@ -554,7 +556,7 @@ const goToVerification = () => {
   }
   
   // 跳转到实名认证页面
-  router.push('http://localhost:8080/treat/front/patient/attendant/addIdCard')
+  router.push('/user/verification')
 }
 
 // 提交就诊人表单（仅支持添加）
@@ -566,14 +568,10 @@ const submitPatientForm = async () => {
       patientSubmitting.value = true
       
       try {
-        // 准备要添加的就诊人数据（非主就诊人）
+        // 准备要添加的就诊人数据（后端仅需要姓名+身份证）
         const patientData = {
           realName: patientForm.real_name,
-          idCard: patientForm.id_card,
-          gender: patientForm.gender,
-          phone: patientForm.phone,
-          homeAddress: patientForm.home_address,
-          isMaster: 0  // 非主就诊人
+          idCard: patientForm.id_card
         }
         
         console.log('提交添加就诊人信息:', patientData)
@@ -650,9 +648,19 @@ const deletePatient = async (id) => {
 
 
 // 初始化
-onMounted(() => {
-  fetchUserInfo()
-  fetchPatientsList()
+onMounted(async () => {
+  await Promise.all([fetchUserInfo(), fetchPatientsList()])
+
+  const tab = route.query.tab
+  if (tab === 'info' || tab === 'patients') {
+    activeTab.value = tab
+  }
+
+  if (route.query.action === 'addPatient') {
+    activeTab.value = 'patients'
+    await nextTick()
+    showPatientDialog('add')
+  }
 })
 </script>
 
@@ -660,7 +668,7 @@ onMounted(() => {
 .user-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px 0;
+  padding: 12px;
 }
 
 .user-card {
@@ -669,9 +677,6 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
-  border: 1px solid rgba(135, 206, 250, 0.2);
-  box-shadow: 0 4px 20px rgba(135, 206, 250, 0.1);
 }
 
 .user-avatar {
@@ -694,12 +699,11 @@ onMounted(() => {
   margin: 10px 0;
   font-size: 20px;
   font-weight: 600;
-  color: #2c5aa0;
-  text-shadow: 0 1px 2px rgba(135, 206, 250, 0.1);
+  color: var(--neutral-800);
 }
 
 .user-id {
-  color: #4a6fa5;
+  color: var(--neutral-600);
   font-size: 14px;
   margin-bottom: 15px;
 }
@@ -712,7 +716,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-around;
   margin-top: 20px;
-  border-top: 1px solid rgba(135, 206, 250, 0.2);
+  border-top: 1px solid rgb(var(--primary-200-rgb) / 0.35);
   padding-top: 20px;
 }
 
@@ -723,12 +727,12 @@ onMounted(() => {
 .stat-value {
   font-size: 24px;
   font-weight: 600;
-  color: #2c5aa0;
+  color: var(--primary-700);
 }
 
 .stat-label {
   font-size: 14px;
-  color: #4a6fa5;
+  color: var(--neutral-600);
   margin-top: 5px;
 }
 
@@ -751,29 +755,19 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 15px 0;
-  border-bottom: 1px solid rgba(135, 206, 250, 0.1);
-}
-
-.security-item .el-button {
-  color: #2c5aa0 !important;
-  font-weight: 600 !important;
-}
-
-.card-header .el-button {
-  color: #2c5aa0 !important;
-  font-weight: 600 !important;
+  border-bottom: 1px solid rgb(var(--primary-200-rgb) / 0.25);
 }
 
 .security-title {
   font-size: 16px;
   font-weight: 500;
-  color: #2c5aa0;
+  color: var(--neutral-800);
   margin-bottom: 5px;
 }
 
 .security-desc {
   font-size: 14px;
-  color: #4a6fa5;
+  color: var(--neutral-600);
 }
 
 .patients-list {
@@ -783,25 +777,24 @@ onMounted(() => {
 }
 
 .patient-card {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.patient-card :deep(.el-card__body) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px;
-  border-radius: 8px;
-  transition: all 0.3s ease;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
-  border: 1px solid rgba(135, 206, 250, 0.2);
-  box-shadow: 0 2px 12px rgba(135, 206, 250, 0.1);
-}
-
-.patient-card:hover {
-  box-shadow: 0 4px 20px rgba(135, 206, 250, 0.2);
-  background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%);
+  gap: 12px;
+  padding: 16px;
 }
 
 .patient-card.is-default {
-  border-left: 4px solid #87ceeb;
-  background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%);
+  border-left: 4px solid var(--primary-500);
+}
+
+.patient-card.is-default :deep(.el-card__body) {
+  background: rgb(var(--primary-50-rgb) / 0.55);
 }
 
 .patient-info {
@@ -811,7 +804,7 @@ onMounted(() => {
 .patient-name {
   font-size: 16px;
   font-weight: 500;
-  color: #2c5aa0;
+  color: var(--neutral-800);
   margin-bottom: 5px;
   display: flex;
   align-items: center;
@@ -819,7 +812,7 @@ onMounted(() => {
 }
 
 .patient-detail {
-  color: #4a6fa5;
+  color: var(--neutral-600);
   font-size: 14px;
   margin-bottom: 5px;
   display: flex;
@@ -827,7 +820,7 @@ onMounted(() => {
 }
 
 .patient-contact {
-  color: #6b8bb3;
+  color: var(--neutral-500);
   font-size: 14px;
 }
 

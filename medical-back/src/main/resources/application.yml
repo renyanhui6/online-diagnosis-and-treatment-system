@@ -47,10 +47,13 @@ spring:
 
 
 upload:
-  access-key: EweYlw_qGB72tDS-IEWXhfJpMYmg0-yE_hBKZCy4
-  secret-key: ZCIXRQVX3ocTIZf7dWCJ4h6nw9BmOjznooM7uJk5
-  bucket: room-manager
-#http://szwlb5xin.hn-bkt.clouddn.com域名
+  # MinIO 配置（本地对象存储）
+  endpoint: ${MINIO_ENDPOINT:}
+  access-key: ${MINIO_ACCESS_KEY:}
+  secret-key: ${MINIO_SECRET_KEY:}
+  bucket: ${MINIO_BUCKET:}
+  # 可选：对外访问域名前缀（例如 http://localhost:9000/bucket 或反向代理域名）
+  public-url-prefix: ${MINIO_PUBLIC_URL_PREFIX:}
 
 
 
@@ -58,6 +61,19 @@ mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
+netty:
+  ws:
+    enabled: true
+    port: 9001
+    path: /netty/ws/chat
+    idle-seconds: 90
+
+ai:
+  deepseek:
+    base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+    api-key: ${DEEPSEEK_API_KEY:}
+    model: ${DEEPSEEK_MODEL:deepseek-chat}
+    timeout-seconds: ${DEEPSEEK_TIMEOUT_SECONDS:20}
 
 
 

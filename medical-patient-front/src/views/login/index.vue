@@ -244,9 +244,9 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
-  background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 50%, #ddeeff 100%);
-  background-size: cover;
+  min-height: 100vh;
+  padding: 24px 12px;
+  background: transparent;
   position: relative;
 }
 
@@ -257,18 +257,20 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(circle at 30% 20%, rgba(135, 206, 250, 0.1) 0%, transparent 50%),
-              radial-gradient(circle at 70% 80%, rgba(173, 216, 230, 0.1) 0%, transparent 50%);
+  background:
+    radial-gradient(900px 420px at 20% 18%, rgb(var(--primary-200-rgb) / 0.24), transparent 60%),
+    radial-gradient(820px 420px at 80% 82%, rgb(var(--primary-300-rgb) / 0.18), transparent 55%);
   pointer-events: none;
 }
 
 .login-box {
   width: 400px;
   padding: 30px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(135, 206, 250, 0.2);
-  border: 1px solid rgba(135, 206, 250, 0.2);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(14px);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid rgb(var(--primary-200-rgb) / 0.35);
   position: relative;
   z-index: 1;
 }
@@ -288,12 +290,10 @@ onMounted(() => {
 
 .login-header h2 {
   font-size: 24px;
-  color: #2c5aa0;
+  color: var(--neutral-800);
+  font-weight: 700;
   margin: 0 0 20px 0;
-  text-shadow: 0 1px 2px rgba(135, 206, 250, 0.1);
 }
-
-
 
 .login-form {
   margin-top: 20px;
@@ -312,15 +312,16 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%);
-  border-radius: 6px;
+  background: rgb(var(--primary-50-rgb) / 0.7);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  border: 1px solid rgba(135, 206, 250, 0.2);
+  border: 1px solid rgb(var(--primary-200-rgb) / 0.45);
   transition: all 0.3s ease;
 }
 
 .captcha-img:hover {
-  box-shadow: 0 2px 8px rgba(135, 206, 250, 0.2);
+  box-shadow: var(--shadow);
+  border-color: rgb(var(--primary-300-rgb) / 0.6);
 }
 
 .captcha-img img {

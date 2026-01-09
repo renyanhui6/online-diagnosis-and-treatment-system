@@ -14,13 +14,13 @@
             <el-icon><Calendar /></el-icon>
             预约管理
           </el-button>
-          <el-button type="success" @click="router.push('/doctor/consultation')">
+          <el-button type="success" @click="router.push('/doctor/consultations')">
             <el-icon><ChatDotRound /></el-icon>
             在线问诊
           </el-button>
-          <el-button type="warning" @click="router.push('/doctor/prescription')">
+          <el-button type="warning" @click="router.push('/doctor/medical-records')">
             <el-icon><Tickets /></el-icon>
-            处方管理
+            病历管理
           </el-button>
         </div>
       </div>
@@ -237,6 +237,23 @@ const greeting = computed(() => {
 
 const weatherText = '天气晴朗，适合出行';
 
+function cssVar(name, fallback) {
+  try {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return value || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+const theme = reactive({
+  brand300: '#93c5fd',
+  brand600: '#2563eb',
+  success: '#10b981',
+  warning: '#f59e0b',
+  danger: '#ef4444'
+});
+
 // 模拟仪表盘数据
 const dashboardData = reactive({
   todayAppointments: 12,
@@ -255,25 +272,25 @@ const scheduleData = [
     time: '08:30 - 10:00',
     content: '门诊',
     type: 'primary',
-    color: '#409EFF'
+    color: ''
   },
   {
     time: '10:30 - 11:30',
     content: '科室会议',
     type: 'warning',
-    color: '#E6A23C'
+    color: ''
   },
   {
     time: '14:00 - 16:30',
     content: '门诊',
     type: 'primary',
-    color: '#409EFF'
+    color: ''
   },
   {
     time: '17:00 - 18:00',
     content: '查房',
     type: 'success',
-    color: '#67C23A'
+    color: ''
   }
 ];
 
@@ -340,17 +357,15 @@ function initCharts() {
           data: [10, 15, 12, 8, 7, 11, 13],
           itemStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: '#83bff6' },
-              { offset: 0.5, color: '#188df0' },
-              { offset: 1, color: '#188df0' }
+              { offset: 0, color: theme.brand300 },
+              { offset: 1, color: theme.brand600 }
             ])
           },
           emphasis: {
             itemStyle: {
               color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: '#2378f7' },
-                { offset: 0.7, color: '#2378f7' },
-                { offset: 1, color: '#83bff6' }
+                { offset: 0, color: theme.brand600 },
+                { offset: 1, color: theme.brand300 }
               ])
             }
           }
@@ -453,6 +468,18 @@ function handleResize() {
 }
 
 onMounted(() => {
+  // 读取主题变量（供图表/时间线颜色使用）
+  theme.brand300 = cssVar('--brand-300', theme.brand300);
+  theme.brand600 = cssVar('--brand-600', theme.brand600);
+  theme.success = cssVar('--el-color-success', theme.success);
+  theme.warning = cssVar('--el-color-warning', theme.warning);
+  theme.danger = cssVar('--el-color-danger', theme.danger);
+
+  scheduleData[0].color = theme.brand600;
+  scheduleData[1].color = theme.warning;
+  scheduleData[2].color = theme.brand600;
+  scheduleData[3].color = theme.success;
+
   // 初始化图表
   setTimeout(() => {
     initCharts();
@@ -478,14 +505,15 @@ onUnmounted(() => {
 }
 
 .welcome-card {
-  background: linear-gradient(135deg, #1890ff, #52c41a);
-  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.95), rgba(16, 185, 129, 0.92));
+  border-radius: var(--app-radius);
   padding: 20px;
   color: #fff;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--app-shadow);
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .welcome-info {
@@ -511,7 +539,7 @@ onUnmounted(() => {
 .welcome-text h2 {
   margin: 0 0 8px 0;
   font-size: 24px;
-  font-weight: 500;
+  font-weight: 800;
 }
 
 .welcome-text p {
@@ -540,7 +568,7 @@ onUnmounted(() => {
 
 .data-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--app-shadow);
 }
 
 .data-icon {
@@ -556,19 +584,19 @@ onUnmounted(() => {
 }
 
 .today-appointments {
-  background-color: #1890ff;
+  background-color: var(--brand-600);
 }
 
 .waiting-consultations {
-  background-color: #52c41a;
+  background-color: var(--el-color-success);
 }
 
 .prescriptions {
-  background-color: #faad14;
+  background-color: var(--el-color-warning);
 }
 
 .satisfaction {
-  background-color: #f5222d;
+  background-color: var(--el-color-danger);
 }
 
 .data-info {
@@ -577,14 +605,14 @@ onUnmounted(() => {
 
 .data-title {
   font-size: 14px;
-  color: #909399;
+  color: rgba(15, 23, 42, 0.55);
   margin-bottom: 8px;
 }
 
 .data-value {
   font-size: 24px;
   font-weight: 600;
-  color: #303133;
+  color: var(--app-text);
   margin-bottom: 8px;
 }
 
@@ -595,11 +623,11 @@ onUnmounted(() => {
 }
 
 .data-compare.up {
-  color: #52c41a;
+  color: var(--el-color-success);
 }
 
 .data-compare.down {
-  color: #f5222d;
+  color: var(--el-color-danger);
 }
 
 .charts-section {
@@ -635,16 +663,16 @@ onUnmounted(() => {
 .notification-item {
   display: flex;
   padding: 12px 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
   transition: all 0.3s;
 }
 
 .notification-item:hover {
-  background-color: #f5f7fa;
+  background-color: rgba(15, 23, 42, 0.03);
 }
 
 .notification-item.unread {
-  background-color: #f0f7ff;
+  background-color: rgba(37, 99, 235, 0.06);
 }
 
 .notification-icon {
@@ -659,15 +687,15 @@ onUnmounted(() => {
 }
 
 .notification-icon.info {
-  background-color: #1890ff;
+  background-color: var(--brand-600);
 }
 
 .notification-icon.message {
-  background-color: #52c41a;
+  background-color: var(--el-color-success);
 }
 
 .notification-icon.warning {
-  background-color: #faad14;
+  background-color: var(--el-color-warning);
 }
 
 .notification-content {
@@ -676,13 +704,13 @@ onUnmounted(() => {
 
 .notification-title {
   font-size: 14px;
-  color: #303133;
+  color: var(--app-text);
   margin-bottom: 4px;
 }
 
 .notification-time {
   font-size: 12px;
-  color: #909399;
+  color: rgba(15, 23, 42, 0.55);
 }
 
 /* 响应式调整 */
@@ -752,6 +780,6 @@ onUnmounted(() => {
 }
 
 .notification-item.unread::before {
-  background-color: #1890ff;
+  background-color: var(--brand-600);
 }
 </style>

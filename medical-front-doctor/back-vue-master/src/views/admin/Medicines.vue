@@ -1224,14 +1224,21 @@ onMounted(() => {
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  box-shadow: var(--app-shadow-sm);
+  backdrop-filter: blur(10px);
 }
 
 .page-header h2 {
   margin: 0;
-  font-size: 24px;
-  font-weight: 500;
+  font-size: 20px;
+  font-weight: 800;
 }
 
 .header-actions {
@@ -1253,7 +1260,7 @@ onMounted(() => {
 .medicine-image {
   width: 50px;
   height: 50px;
-  border-radius: 4px;
+  border-radius: 10px;
   overflow: hidden;
 }
 
@@ -1263,8 +1270,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f5f7fa;
-  color: #909399;
+  background-color: rgba(15, 23, 42, 0.03);
+  color: rgba(15, 23, 42, 0.55);
 }
 
 .medicine-detail {
@@ -1279,7 +1286,7 @@ onMounted(() => {
 
 .medicine-spec {
   font-size: 12px;
-  color: #606266;
+  color: rgba(15, 23, 42, 0.65);
 }
 
 .medicine-category {
@@ -1287,7 +1294,7 @@ onMounted(() => {
 }
 
 .stock-warning {
-  color: #E6A23C;
+  color: var(--el-color-warning);
   font-weight: bold;
 }
 
@@ -1319,8 +1326,8 @@ onMounted(() => {
   margin-bottom: 15px;
   font-size: 16px;
   font-weight: 500;
-  color: #303133;
-  border-bottom: 1px solid #ebeef5;
+  color: var(--app-text);
+  border-bottom: 1px solid var(--app-border);
   padding-bottom: 10px;
 }
 
@@ -1342,7 +1349,7 @@ onMounted(() => {
 
 .expand-label {
   width: 100px;
-  color: #909399;
+  color: rgba(15, 23, 42, 0.55);
   font-size: 14px;
 }
 
@@ -1365,7 +1372,7 @@ onMounted(() => {
 }
 
 .medicine-uploader:hover {
-  border-color: #409EFF;
+  border-color: var(--brand-600);
 }
 
 .medicine-uploader-icon {
@@ -1386,7 +1393,7 @@ onMounted(() => {
 
 .upload-tip {
   font-size: 12px;
-  color: #909399;
+  color: rgba(15, 23, 42, 0.55);
   margin-top: 8px;
 }
 
@@ -1447,17 +1454,17 @@ onMounted(() => {
 
 .el-table :deep(tbody tr:hover) {
   transform: translateY(-2px);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--app-shadow-sm);
   z-index: 1;
   position: relative;
 }
 
 /* 表格样式增强 */
 .el-table :deep(th) {
-  background-color: #f5f7fa !important;
+  background-color: rgba(15, 23, 42, 0.03) !important;
 }
 
 .el-table :deep(.el-table__row:nth-child(even)) {
-  background-color: #fafafa;
+  background-color: rgba(15, 23, 42, 0.015);
 }
 </style>

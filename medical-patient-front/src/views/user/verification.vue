@@ -95,10 +95,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
 import UserStorage from '../../utils/userStorage'
 import request from '../../api/request'
 
@@ -130,10 +129,6 @@ const identityRules = {
     { pattern: /(^\d{15}$)|(^\d{18}$)|(^\d{17}(\d|X|x)$)/, message: '请输入正确的身份证号', trigger: 'blur' }
   ]
 }
-
-// 不再需要验证码倒计时
-const countdown = ref(0)
-// let countdownTimer = null
 
 // 认证状态
 const verificationStatus = ref('') // 'pending', 'success', 'failed'
@@ -260,19 +255,13 @@ onMounted(() => {
   fetchUserInfo()
 })
 
-// 组件卸载前清除定时器
-onBeforeUnmount(() => {
-  if (countdownTimer) {
-    clearInterval(countdownTimer)
-  }
-})
 </script>
 
 <style scoped>
 .verification-container {
-  max-width: 800px;
+  max-width: 860px;
   margin: 0 auto;
-  padding: 20px 0;
+  padding: 12px;
 }
 
 .verification-card {
@@ -288,20 +277,20 @@ onBeforeUnmount(() => {
 .card-header h2 {
   margin: 0;
   font-size: 20px;
-  font-weight: 600;
-  color: #333;
+  font-weight: 700;
+  color: var(--neutral-800);
 }
 
 .verification-content {
-  padding: 20px 0;
+  padding: 12px 0;
 }
 
 .step-content {
-  margin-top: 30px;
+  margin-top: 20px;
 }
 
 .step-form {
-  max-width: 600px;
+  max-width: 640px;
   margin: 0 auto;
 }
 
@@ -317,13 +306,14 @@ onBeforeUnmount(() => {
 .upload-tips {
   margin-bottom: 20px;
   padding: 10px;
-  background-color: #f8f8f8;
-  border-radius: 4px;
+  background: rgb(var(--primary-50-rgb) / 0.65);
+  border: 1px solid rgb(var(--primary-200-rgb) / 0.35);
+  border-radius: 10px;
 }
 
 .upload-tips p {
   margin: 5px 0;
-  color: #666;
+  color: var(--neutral-600);
   font-size: 14px;
 }
 
@@ -342,22 +332,24 @@ onBeforeUnmount(() => {
   margin: 0 0 10px 0;
   font-size: 16px;
   font-weight: 500;
-  color: #333;
+  color: var(--neutral-800);
 }
 
 .upload-container {
   width: 100%;
   height: 180px;
-  border: 1px dashed #d9d9d9;
-  border-radius: 6px;
+  border: 1px dashed rgb(var(--primary-200-rgb) / 0.7);
+  border-radius: 12px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  transition: border-color 0.3s;
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.55);
 }
 
 .upload-container:hover {
-  border-color: #409EFF;
+  border-color: var(--primary-500);
+  box-shadow: var(--shadow);
 }
 
 .upload-placeholder {
@@ -366,7 +358,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #8c939d;
+  color: var(--neutral-500);
 }
 
 .upload-placeholder .el-icon {
@@ -376,7 +368,7 @@ onBeforeUnmount(() => {
 
 .upload-text {
   font-size: 14px;
-  color: #8c939d;
+  color: var(--neutral-500);
 }
 
 .preview-container {

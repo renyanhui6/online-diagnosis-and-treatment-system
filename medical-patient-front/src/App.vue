@@ -259,6 +259,49 @@ html, body {
   left: 100%;
 }
 
+/* Plain / link buttons (restore Element Plus semantics) */
+.el-button.is-plain {
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgb(var(--primary-300-rgb) / 0.55);
+  box-shadow: var(--shadow-sm);
+  color: var(--neutral-800);
+}
+
+.el-button--primary.is-plain {
+  border-color: rgb(var(--primary-400-rgb) / 0.6);
+  color: var(--primary-700);
+}
+
+.el-button--info.is-plain {
+  border-color: rgb(var(--primary-300-rgb) / 0.45);
+  color: var(--neutral-700);
+}
+
+.el-button.is-plain:hover {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgb(var(--primary-400-rgb) / 0.7);
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
+
+.el-button.is-link,
+.el-button.is-text {
+  background: transparent;
+  box-shadow: none;
+  border: none;
+}
+
+.el-button.is-link::before,
+.el-button.is-text::before {
+  display: none;
+}
+
+.el-button.is-link:hover,
+.el-button.is-text:hover {
+  transform: none;
+  box-shadow: none;
+}
+
 .el-button--primary {
   background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
   color: white;
@@ -316,7 +359,7 @@ html, body {
   border-radius: var(--radius-xl);
   overflow: hidden;
   transition: var(--transition);
-  border: 1px solid rgba(var(--primary-200), 0.3);
+  border: 1px solid rgb(var(--primary-200-rgb) / 0.3);
   box-shadow: var(--shadow-md);
   backdrop-filter: blur(10px);
   background-color: rgba(255, 255, 255, 0.7);
@@ -329,10 +372,10 @@ html, body {
 
 .el-card__header {
   padding: 15px 20px;
-  border-bottom: 1px solid rgba(var(--primary-200), 0.3);
+  border-bottom: 1px solid rgb(var(--primary-200-rgb) / 0.3);
   font-weight: 600;
   color: var(--primary-700);
-  background-color: rgba(var(--primary-100), 0.3);
+  background-color: rgb(var(--primary-100-rgb) / 0.35);
 }
 
 /* 输入框样式 */
@@ -344,7 +387,7 @@ html, body {
 
 .el-input__inner:focus {
   border-color: var(--primary-500);
-  box-shadow: 0 0 0 2px rgba(var(--primary-500), 0.2);
+  box-shadow: 0 0 0 2px rgb(var(--primary-500-rgb) / 0.2);
 }
 
 /* 表格样式 */

@@ -535,12 +535,16 @@ onMounted(() => {
 .page-header h2 {
   margin: 0;
   font-size: 24px;
-  font-weight: 500;
+  font-weight: 700;
+  color: var(--app-text);
+  letter-spacing: -0.2px;
 }
 
 .header-actions {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .medical-record-card {
@@ -566,11 +570,11 @@ onMounted(() => {
 
 /* 就诊记录详情样式 */
 .medical-record-detail {
-  padding: 0 20px;
+  padding: 12px 20px 20px;
 }
 
 .prescription-detail {
-  padding: 0 20px;
+  padding: 12px 20px 20px;
 }
 
 .detail-header {
@@ -578,11 +582,13 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding-bottom: 16px;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .record-id, .prescription-id {
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
+  color: var(--app-text);
 }
 
 .patient-section {
@@ -603,7 +609,7 @@ onMounted(() => {
 
 .patient-info-detail p {
   margin: 0 0 4px 0;
-  color: #606266;
+  color: var(--app-text-muted);
   font-size: 14px;
 }
 
@@ -618,13 +624,14 @@ onMounted(() => {
 
 .item-label {
   width: 100px;
-  color: #909399;
+  color: var(--app-text-muted);
   font-size: 14px;
 }
 
 .item-value {
   flex: 1;
   font-size: 14px;
+  color: var(--app-text);
 }
 
 .price-summary {
@@ -632,8 +639,9 @@ onMounted(() => {
   justify-content: flex-end;
   margin-top: 20px;
   padding: 16px;
-  background-color: #f8f8f8;
-  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.03);
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
 }
 
 .price-item {
@@ -644,7 +652,7 @@ onMounted(() => {
 .total-price {
   font-size: 18px;
   font-weight: 500;
-  color: #f56c6c;
+  color: var(--el-color-danger);
 }
 
 .detail-actions {
@@ -684,13 +692,13 @@ onMounted(() => {
 }
 
 .el-table :deep(tbody tr:hover) {
-  transform: translateY(-2px);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+  box-shadow: var(--app-shadow-sm);
   z-index: 1;
   position: relative;
 }
 
-.el-drawer__body {
+:deep(.el-drawer__body) {
   padding: 0;
 }
 
@@ -705,10 +713,10 @@ onMounted(() => {
 
 /* 表格样式增强 */
 .el-table :deep(th) {
-  background-color: #f5f7fa !important;
+  background-color: rgba(15, 23, 42, 0.04) !important;
 }
 
 .el-table :deep(.el-table__row:nth-child(even)) {
-  background-color: #fafafa;
+  background-color: rgba(15, 23, 42, 0.015);
 }
 </style>

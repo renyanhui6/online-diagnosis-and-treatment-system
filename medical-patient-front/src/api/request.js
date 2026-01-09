@@ -45,7 +45,7 @@ service.interceptors.response.use(
     if (res.code !== 200) {
       console.error('API错误:', response.config.url, res.code, res.message)
       // 只在非登录相关错误时显示错误消息
-      if (res.code !== 601 && res.code !== 602 && res.code !== 501 && res.code !== 201) {
+      if (res.code !== 601 && res.code !== 602 && res.code !== 501 && res.code !== 201 && res.code !== 9001) {
         ElMessage({
           message: res.message || '请求失败',
           type: 'error',
@@ -74,7 +74,10 @@ service.interceptors.response.use(
         router.replace({ path: '/login', query: { redirect: currentPath } })
       }
       
-      return Promise.reject(new Error(res.message || '请求失败'))
+      const requestError = new Error(res.message || '请求失败')
+      requestError.code = res.code
+      requestError.data = res
+      return Promise.reject(requestError)
     } else {
       return res
     }

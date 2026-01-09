@@ -36,9 +36,12 @@ class WebSocketService {
       this.ws = null;
     }
 
-    // 创建新的WebSocket连接
-    const wsUrl = `ws://localhost:8080/treat/common/ws/chat/${roomId}?token=${token}`
-    console.log('🔗 连接WebSocket，房间ID:', roomId);
+    // 创建新的WebSocket连接，支持环境开关以适配 Netty 端点
+    const isHttps = window.location.protocol === 'https:'
+    const backendHost = import.meta.env.VITE_WS_BASE || (import.meta.env.DEV ? 'localhost:8080' : window.location.host)
+    const wsPath = import.meta.env.VITE_WS_PATH || '/treat/common/ws/chat'
+    const wsUrl = `${isHttps ? 'wss' : 'ws'}://${backendHost}${wsPath}/${roomId}?token=${token}`
+    console.log('🔗 连接WebSocket，房间ID:', roomId, 'URL:', wsUrl);
     
     try {
       this.ws = new WebSocket(wsUrl)
@@ -168,19 +171,16 @@ class WebSocketService {
     console.log('✅ 开始建立医生端长连接')
 
     // 创建新的WebSocket连接 - 医生端专用
-    let backendHost
-    if (import.meta.env.DEV) {
-      backendHost = 'localhost:8080'
-    } else {
-      backendHost = window.location.host
-    }
+    const isHttps = window.location.protocol === 'https:'
+    const backendHost = import.meta.env.VITE_WS_BASE || (import.meta.env.DEV ? 'localhost:8080' : window.location.host)
+    const wsPath = import.meta.env.VITE_WS_PATH || '/treat/common/ws/chat'
     
     // 医生端连接到个人通知频道
     const userId = this.getUserIdFromToken(token)
     console.log('解析出的用户ID:', userId)
     console.log('用户信息详情:', JSON.stringify(JSON.parse(localStorage.getItem('userInfo') || '{}')))
     
-    const wsUrl = `ws://${backendHost}/treat/common/ws/chat/doctor_${userId}?token=${token}`
+    const wsUrl = `${isHttps ? 'wss' : 'ws'}://${backendHost}${wsPath}/doctor_${userId}?token=${token}`
     console.log('医生端WebSocket连接URL:', wsUrl)
     
     this.doctorConnection = new WebSocket(wsUrl)

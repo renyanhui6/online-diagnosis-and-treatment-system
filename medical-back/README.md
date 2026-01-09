@@ -8,16 +8,25 @@
 
 
 #### 安装教程
+**后端启动（推荐本地 profile）**
+1. 安装 JDK 17（或以上）与 Maven（也可使用 `./mvnw`）。
+2. 进入后端目录：`cd medical-back`
+3. 配置 DeepSeek（可选，但 AI 功能需要）：
+   - Linux/macOS：`export DEEPSEEK_API_KEY=你的key`
+   - Windows PowerShell：`setx DEEPSEEK_API_KEY "你的key"`
+4. 本地启动（不依赖 MySQL 也可启动）：`./mvnw spring-boot:run -Dspring-boot.run.profiles=local`
+   - 访问：`http://localhost:8080/treat`
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+**说明**
+- `local` profile 使用 H2 内存库用于“可启动/可联调”，但业务数据表需要你自行导入/初始化，否则接口会在查询阶段报错。
+- 如需完整功能（预约/支付/消息队列/Redis 过期事件等），请准备 MySQL + Redis + RabbitMQ 并修改配置或通过环境变量覆盖。
 
 #### 使用说明
-
-1.  xxxx
-2.  xxxx
-3.  xxxx
+- DeepSeek 配置项：
+  - `DEEPSEEK_API_KEY`：API Key（不要提交到仓库）
+  - `DEEPSEEK_MODEL`：默认 `deepseek-chat`
+  - `DEEPSEEK_BASE_URL`：默认 `https://api.deepseek.com`
+  - `DEEPSEEK_TIMEOUT_SECONDS`：默认 `20`
 
 #### 参与贡献
 

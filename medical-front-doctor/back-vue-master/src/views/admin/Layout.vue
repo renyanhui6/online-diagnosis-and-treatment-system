@@ -43,9 +43,9 @@ const isCollapse = ref(false);
 
 .app-main {
   flex: 1;
-  padding: 20px;
+  padding: 24px;
   overflow-y: auto;
-  background-color: #f0f2f5;
+  background-color: transparent;
 }
 
 /* 页面切换动画 */

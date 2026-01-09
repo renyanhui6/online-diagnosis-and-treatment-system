@@ -131,8 +131,10 @@ function handleCommand(command) {
   align-items: center;
   justify-content: space-between;
   height: 60px;
-  background-color: #fff;
-  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+  background: var(--app-surface);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--app-border);
+  box-shadow: var(--app-shadow-sm);
   padding: 0 20px;
   position: relative;
   z-index: 10;
@@ -160,7 +162,7 @@ function handleCommand(command) {
 .header-icon {
   padding: 0 10px;
   font-size: 18px;
-  color: #606266;
+  color: var(--app-text-muted);
 }
 
 .user-info {
@@ -173,7 +175,7 @@ function handleCommand(command) {
 .username {
   margin: 0 8px;
   font-size: 14px;
-  color: #303133;
+  color: var(--app-text);
 }
 
 /* 添加动画效果 */
@@ -186,7 +188,7 @@ function handleCommand(command) {
 }
 
 .header-icon {
-  transition: all 0.3s;
+  transition: all var(--app-transition);
 }
 
 .header-icon:hover {
@@ -195,11 +197,11 @@ function handleCommand(command) {
 }
 
 .user-info {
-  transition: background-color 0.3s;
-  border-radius: 4px;
+  transition: background-color var(--app-transition);
+  border-radius: 10px;
 }
 
 .user-info:hover {
-  background-color: #f5f7fa;
+  background-color: rgba(15, 23, 42, 0.05);
 }
 </style>

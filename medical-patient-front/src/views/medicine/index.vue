@@ -682,6 +682,7 @@ onMounted(() => {
 .medicine-container {
   max-width: 1200px;
   margin: 0 auto;
+  padding: 12px;
 }
 
 .medicine-card {
@@ -698,8 +699,7 @@ onMounted(() => {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #2c5aa0;
-  text-shadow: 0 1px 2px rgba(135, 206, 250, 0.1);
+  color: var(--neutral-800);
 }
 
 .header-actions {
@@ -721,7 +721,7 @@ onMounted(() => {
 }
 
 .medicine-item {
-  border: 1px solid rgba(135, 206, 250, 0.2);
+  border: 1px solid rgb(var(--primary-200-rgb) / 0.25);
   border-radius: 12px;
   overflow: hidden;
   transition: all 0.3s ease;
@@ -729,14 +729,14 @@ onMounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
-  box-shadow: 0 2px 12px rgba(135, 206, 250, 0.1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgb(var(--primary-50-rgb) / 0.55) 100%);
+  box-shadow: var(--shadow);
 }
 
 .medicine-item:hover {
   transform: translateY(-5px);
-  box-shadow: 0 8px 24px rgba(135, 206, 250, 0.2);
-  background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%);
+  box-shadow: var(--shadow-lg);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgb(var(--primary-100-rgb) / 0.55) 100%);
 }
 
 .medicine-image {
@@ -758,22 +758,22 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-  color: #87ceeb;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgb(var(--primary-100-rgb) / 0.55) 100%);
+  color: var(--primary-600);
   font-size: 30px;
 }
 
 .image-placeholder span {
   font-size: 12px;
   margin-top: 5px;
-  color: #94a3b8;
+  color: var(--neutral-500);
 }
 
 .prescription-tag {
   position: absolute;
   top: 10px;
   right: 10px;
-  background-color: #f56c6c;
+  background-color: var(--error);
   color: #fff;
   padding: 2px 8px;
   border-radius: 4px;
@@ -790,7 +790,7 @@ onMounted(() => {
 .medicine-name {
   font-size: 16px;
   font-weight: 600;
-  color: #2c5aa0;
+  color: var(--neutral-800);
   margin: 0 0 10px 0;
   cursor: pointer;
   overflow: hidden;
@@ -801,12 +801,12 @@ onMounted(() => {
 }
 
 .medicine-name:hover {
-  color: #87ceeb;
+  color: var(--primary-600);
 }
 
 .medicine-spec {
   font-size: 14px;
-  color: #4a6fa5;
+  color: var(--neutral-600);
   margin: 0 0 10px 0;
 }
 
@@ -820,7 +820,7 @@ onMounted(() => {
 .medicine-price {
   font-size: 18px;
   font-weight: 600;
-  color: #ff7a45;
+  color: var(--warning);
 }
 
 .pagination-container {
@@ -845,7 +845,7 @@ onMounted(() => {
   height: 200px;
   overflow: hidden;
   border-radius: 8px;
-  border: 1px solid #e8e8e8;
+  border: 1px solid rgb(var(--primary-200-rgb) / 0.25);
 }
 
 .medicine-detail-image .el-image {
@@ -860,28 +860,27 @@ onMounted(() => {
 .medicine-detail-info h2 {
   font-size: 20px;
   font-weight: 600;
-  color: #2c5aa0;
+  color: var(--neutral-800);
   margin: 0 0 15px 0;
-  text-shadow: 0 1px 2px rgba(135, 206, 250, 0.1);
 }
 
 .medicine-detail-spec,
 .medicine-detail-manufacturer {
   font-size: 14px;
-  color: #4a6fa5;
+  color: var(--neutral-600);
   margin: 0 0 10px 0;
 }
 
 .medicine-detail-price {
   font-size: 16px;
-  color: #2c5aa0;
+  color: var(--neutral-700);
   margin: 0 0 20px 0;
 }
 
 .price {
   font-size: 20px;
   font-weight: 600;
-  color: #ff7a45;
+  color: var(--warning);
 }
 
 .medicine-detail-actions {
@@ -903,14 +902,13 @@ onMounted(() => {
 .medicine-guidance h3 {
   font-size: 16px;
   font-weight: 600;
-  color: #2c5aa0;
+  color: var(--neutral-800);
   margin: 0 0 10px 0;
-  text-shadow: 0 1px 2px rgba(135, 206, 250, 0.1);
 }
 
 .medicine-guidance p {
   font-size: 14px;
-  color: #4a6fa5;
+  color: var(--neutral-600);
   line-height: 1.6;
 }
 
@@ -929,13 +927,13 @@ onMounted(() => {
 .cart-item-name h4 {
   font-size: 14px;
   font-weight: 600;
-  color: #2c5aa0;
+  color: var(--neutral-800);
   margin: 0 0 5px 0;
 }
 
 .cart-item-name p {
   font-size: 12px;
-  color: #4a6fa5;
+  color: var(--neutral-600);
   margin: 0;
 }
 
@@ -954,13 +952,13 @@ onMounted(() => {
 
 .cart-total p {
   font-size: 14px;
-  color: #2c5aa0;
+  color: var(--neutral-700);
   margin: 0;
 }
 
 .count {
   font-weight: 600;
-  color: #87ceeb;
+  color: var(--primary-600);
 }
 
 /* 结算样式 */
@@ -968,7 +966,7 @@ onMounted(() => {
   margin: 20px 0;
   text-align: right;
   font-size: 16px;
-  color: #2c5aa0;
+  color: var(--neutral-700);
 }
 
 .dialog-footer {
@@ -997,7 +995,7 @@ onMounted(() => {
 }
 
 .prescription-details .el-descriptions {
-  background: #f8fbff;
+  background: rgba(255, 255, 255, 0.7);
   border-radius: 8px;
   padding: 15px;
 }

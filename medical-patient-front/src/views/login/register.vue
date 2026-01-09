@@ -140,17 +140,32 @@ const goToLogin = () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
-  background: linear-gradient(135deg, #e0f7fa 0%, #80deea 100%);
-  background-size: cover;
+  min-height: 100vh;
+  padding: 24px 12px;
+  background: transparent;
+  position: relative;
+}
+
+.register-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(900px 420px at 20% 18%, rgb(var(--primary-200-rgb) / 0.24), transparent 60%),
+    radial-gradient(820px 420px at 80% 82%, rgb(var(--primary-300-rgb) / 0.18), transparent 55%);
+  pointer-events: none;
 }
 
 .register-box {
   width: 400px;
   padding: 30px;
-  background-color: rgba(255, 255, 255, 0.9);
-  border-radius: 8px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(14px);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid rgb(var(--primary-200-rgb) / 0.35);
+  position: relative;
+  z-index: 1;
 }
 
 .register-header {
@@ -168,7 +183,7 @@ const goToLogin = () => {
 
 .register-header h2 {
   font-size: 24px;
-  color: #1890ff;
+  color: var(--primary-700);
   margin: 0;
 }
 
@@ -189,7 +204,7 @@ const goToLogin = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f0f2f5;
+  background-color: var(--primary-100);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -214,6 +229,6 @@ const goToLogin = () => {
 
 .register-options span {
   margin-right: 8px;
-  color: #666;
+  color: var(--neutral-600);
 }
 </style>

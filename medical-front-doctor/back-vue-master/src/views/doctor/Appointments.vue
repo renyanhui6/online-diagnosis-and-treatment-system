@@ -244,12 +244,16 @@ onMounted(() => {
 .page-header h2 {
   margin: 0;
   font-size: 24px;
-  font-weight: 500;
+  font-weight: 700;
+  color: var(--app-text);
+  letter-spacing: -0.2px;
 }
 
 .header-actions {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .appointment-card {
@@ -271,7 +275,8 @@ onMounted(() => {
 .schedule-header h3 {
   margin: 0;
   font-size: 18px;
-  font-weight: 500;
+  font-weight: 700;
+  color: var(--app-text);
 }
 
 .schedule-content {
@@ -285,17 +290,24 @@ onMounted(() => {
 }
 
 .schedule-card {
-  border: 1px solid #e4e7ed;
-  border-radius: 8px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-sm);
   padding: 16px;
-  background: white;
+  background: var(--app-surface-strong);
+  box-shadow: var(--app-shadow-sm);
+  transition: transform var(--app-transition), box-shadow var(--app-transition);
+}
+
+.schedule-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--app-shadow);
 }
 
 .schedule-date {
   text-align: center;
   margin-bottom: 12px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .schedule-date h4 {
@@ -306,7 +318,7 @@ onMounted(() => {
 
 .schedule-date p {
   margin: 0;
-  color: #909399;
+  color: var(--app-text-muted);
   font-size: 14px;
 }
 
@@ -322,17 +334,17 @@ onMounted(() => {
 
 .time-slot .label {
   font-weight: 500;
-  color: #606266;
+  color: var(--app-text-muted);
 }
 
 .time-slot .time {
-  color: #409eff;
+  color: var(--brand-600);
 }
 
 .schedule-info p {
   margin: 4px 0;
   font-size: 14px;
-  color: #606266;
+  color: var(--app-text-muted);
 }
 
 .empty-state {

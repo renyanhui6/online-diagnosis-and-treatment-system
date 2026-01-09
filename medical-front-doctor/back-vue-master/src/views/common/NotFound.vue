@@ -84,7 +84,10 @@ function getRandomStarStyle() {
   align-items: center;
   height: 100vh;
   width: 100%;
-  background-color: #1a1a2e;
+  background:
+    radial-gradient(900px 520px at 20% 10%, rgba(37, 99, 235, 0.35), transparent 60%),
+    radial-gradient(900px 520px at 80% 0%, rgba(16, 185, 129, 0.22), transparent 58%),
+    linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
   overflow: hidden;
   position: relative;
 }
@@ -102,7 +105,7 @@ function getRandomStarStyle() {
   font-weight: 700;
   line-height: 1;
   margin-bottom: 20px;
-  background: linear-gradient(45deg, #1890ff, #52c41a);
+  background: linear-gradient(45deg, var(--brand-600), var(--el-color-success));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: pulse 2s infinite;
@@ -172,8 +175,8 @@ function getRandomStarStyle() {
   width: 300px;
   height: 300px;
   border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, #4b6cb7, #182848);
-  box-shadow: 0 0 50px rgba(75, 108, 183, 0.5);
+  background: radial-gradient(circle at 30% 30%, rgba(37, 99, 235, 0.9), rgba(15, 23, 42, 0.95));
+  box-shadow: 0 0 50px rgba(37, 99, 235, 0.35);
   animation: rotate 100s linear infinite;
 }
 

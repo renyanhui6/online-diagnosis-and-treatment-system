@@ -1163,18 +1163,26 @@ onUnmounted(() => {
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  box-shadow: var(--app-shadow-sm);
+  backdrop-filter: blur(10px);
 }
 
 .page-header h2 {
   margin: 0;
-  font-size: 24px;
-  font-weight: 500;
+  font-size: 20px;
+  font-weight: 800;
 }
 
 .header-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
@@ -1194,20 +1202,20 @@ onUnmounted(() => {
 
 .department-item {
   padding: 12px;
-  border-radius: 4px;
+  border-radius: 10px;
   margin-bottom: 10px;
   cursor: pointer;
   transition: all 0.3s;
 }
 
 .department-item:hover {
-  background-color: #f5f7fa;
+  background-color: rgba(15, 23, 42, 0.03);
   transform: translateY(-2px);
 }
 
 .department-item.active {
-  background-color: #ecf5ff;
-  border-left: 3px solid #409EFF;
+  background-color: rgba(37, 99, 235, 0.06);
+  border-left: 3px solid var(--brand-600);
 }
 
 .department-item-content {
@@ -1228,7 +1236,7 @@ onUnmounted(() => {
 
 .department-count {
   font-size: 12px;
-  color: #909399;
+  color: rgba(15, 23, 42, 0.55);
 }
 
 .department-detail-card {
@@ -1261,7 +1269,7 @@ onUnmounted(() => {
 
 .department-code {
   font-size: 14px;
-  color: #606266;
+  color: rgba(15, 23, 42, 0.65);
 }
 
 .department-info-section {
@@ -1283,13 +1291,13 @@ onUnmounted(() => {
 
 .info-label {
   font-size: 14px;
-  color: #909399;
+  color: rgba(15, 23, 42, 0.55);
   margin-bottom: 5px;
 }
 
 .info-value {
   font-size: 16px;
-  color: #303133;
+  color: var(--app-text);
 }
 
 .info-value.description {
@@ -1302,7 +1310,7 @@ onUnmounted(() => {
 }
 
 .stat-card {
-  background-color: #f5f7fa;
+  background-color: rgba(15, 23, 42, 0.03);
   border-radius: 8px;
   padding: 15px;
   text-align: center;
@@ -1311,19 +1319,19 @@ onUnmounted(() => {
 
 .stat-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--app-shadow-sm);
 }
 
 .stat-value {
   font-size: 24px;
   font-weight: 600;
-  color: #303133;
+  color: var(--app-text);
   margin-bottom: 5px;
 }
 
 .stat-label {
   font-size: 14px;
-  color: #909399;
+  color: rgba(15, 23, 42, 0.55);
 }
 
 .department-charts {
@@ -1363,7 +1371,7 @@ onUnmounted(() => {
 
 .doctor-gender {
   font-size: 12px;
-  color: #909399;
+  color: rgba(15, 23, 42, 0.55);
 }
 
 /* 响应式调整 */
@@ -1396,7 +1404,7 @@ onUnmounted(() => {
 
 .el-table :deep(tbody tr:hover) {
   transform: translateY(-2px);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--app-shadow-sm);
   z-index: 1;
   position: relative;
 }

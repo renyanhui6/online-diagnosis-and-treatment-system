@@ -130,8 +130,8 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
-import { Edit, User, Phone, Message, Lock } from '@element-plus/icons-vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { Lock } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 import { getDoctorInfo } from '@/api';
 
 // 状态变量
@@ -298,7 +298,7 @@ onMounted(() => {
 
 <style scoped>
 .profile-container {
-  padding: 20px;
+  padding: 0;
 }
 
 .profile-header {
@@ -308,7 +308,9 @@ onMounted(() => {
 .profile-header h2 {
   margin: 0;
   font-size: 24px;
-  font-weight: 500;
+  font-weight: 700;
+  color: var(--app-text);
+  letter-spacing: -0.2px;
 }
 
 .profile-card {
@@ -354,7 +356,7 @@ onMounted(() => {
   align-items: center;
   margin-bottom: 8px;
   font-size: 14px;
-  color: #606266;
+  color: var(--app-text-muted);
 }
 
 .meta-item .el-icon {
@@ -367,7 +369,7 @@ onMounted(() => {
   justify-content: space-around;
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid #ebeef5;
+  border-top: 1px solid var(--app-border);
 }
 
 .stat-item {
@@ -377,13 +379,13 @@ onMounted(() => {
 .stat-value {
   font-size: 24px;
   font-weight: 500;
-  color: #409EFF;
+  color: var(--brand-600);
   margin-bottom: 5px;
 }
 
 .stat-label {
   font-size: 12px;
-  color: #909399;
+  color: var(--app-text-muted);
 }
 
 .card-header {
@@ -421,7 +423,7 @@ onMounted(() => {
 
 .form-content {
   padding: 8px 0;
-  color: #606266;
+  color: var(--app-text-muted);
 }
 
 .biography {
@@ -438,7 +440,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 15px 0;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .security-item:last-child {
@@ -460,7 +462,7 @@ onMounted(() => {
 
 .security-desc {
   font-size: 12px;
-  color: #909399;
+  color: var(--app-text-muted);
 }
 
 /* 响应式调整 */

@@ -80,6 +80,11 @@ const title = computed(() => {
 // 医生菜单
 const doctorMenus = [
   {
+    path: '/doctor/dashboard',
+    title: '工作台',
+    icon: 'HomeFilled'
+  },
+  {
     path: '/doctor/appointments',
     title: '我的排班',
     icon: 'Calendar'
@@ -112,6 +117,26 @@ const adminMenus = [
     path: '/admin/statistics',
     title: '统计报表',
     icon: 'DataLine'
+  },
+  {
+    path: '/admin/doctors',
+    title: '医生管理',
+    icon: 'User'
+  },
+  {
+    path: '/admin/departments',
+    title: '部门管理',
+    icon: 'OfficeBuilding'
+  },
+  {
+    path: '/admin/medicines',
+    title: '药品管理',
+    icon: 'FirstAidKit'
+  },
+  {
+    path: '/admin/patients',
+    title: '患者管理',
+    icon: 'UserFilled'
   }
 ];
 
@@ -126,12 +151,13 @@ const activeMenu = computed(() => {
 
 <style scoped>
 .app-sidebar {
-  background-color: #001529;
+  background: linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
   height: 100vh;
   transition: width 0.3s;
   position: relative;
   overflow: hidden;
-  box-shadow: 2px 0 6px rgba(0, 21, 41, 0.35);
+  box-shadow: 2px 0 18px rgba(15, 23, 42, 0.18);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
   z-index: 20;
 }
 
@@ -141,7 +167,9 @@ const activeMenu = computed(() => {
   align-items: center;
   padding: 0 16px;
   overflow: hidden;
-  background-color: #002140;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .logo {
@@ -160,7 +188,7 @@ const activeMenu = computed(() => {
 
 .sidebar-menu {
   border-right: none;
-  background-color: #001529;
+  background-color: transparent;
 }
 
 .sidebar-menu :deep(.el-menu-item),
@@ -172,13 +200,13 @@ const activeMenu = computed(() => {
 
 .sidebar-menu :deep(.el-menu-item.is-active) {
   color: #fff;
-  background-color: #1890ff;
+  background: rgba(37, 99, 235, 0.22);
 }
 
 .sidebar-menu :deep(.el-menu-item:hover),
 .sidebar-menu :deep(.el-sub-menu__title:hover) {
   color: #fff;
-  background-color: #001528;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .sidebar-footer {
@@ -189,7 +217,8 @@ const activeMenu = computed(() => {
   text-align: center;
   color: rgba(255, 255, 255, 0.45);
   font-size: 12px;
-  background-color: #00101f;
+  background: rgba(255, 255, 255, 0.03);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .version {
@@ -198,11 +227,11 @@ const activeMenu = computed(() => {
 
 /* 动画效果 */
 .logo {
-  transition: all 0.3s;
+  transition: transform 0.35s ease;
 }
 
 .logo-container:hover .logo {
-  transform: rotate(360deg);
+  transform: rotate(-6deg) scale(1.03);
 }
 
 .sidebar-menu :deep(.el-menu-item),
@@ -219,7 +248,7 @@ const activeMenu = computed(() => {
   bottom: 0;
   width: 0;
   height: 2px;
-  background-color: #1890ff;
+  background-color: rgba(37, 99, 235, 0.9);
   transition: width 0.3s ease;
 }
 

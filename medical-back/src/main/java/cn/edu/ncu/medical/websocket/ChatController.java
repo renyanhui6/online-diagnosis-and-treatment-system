@@ -5,14 +5,17 @@ import cn.edu.ncu.medical.entity.ChatMessage;
 import cn.edu.ncu.medical.entity.PatientAttendant;
 import cn.edu.ncu.medical.entity.Room;
 import cn.edu.ncu.medical.exception.MyRuntimeException;
+import cn.edu.ncu.medical.netty.NettySessionRegistry;
 import cn.edu.ncu.medical.result.Result;
 import cn.edu.ncu.medical.result.ResultCodeEnum;
 import cn.edu.ncu.medical.service.ChatMessageService;
 import cn.edu.ncu.medical.service.PatientAttendantService;
 import cn.edu.ncu.medical.service.RoomService;
 import cn.edu.ncu.medical.utils.UploadUtil;
+import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -29,12 +32,14 @@ public class ChatController {
     private static UploadConfig uploadConfig;
     private static RoomService roomService;
     private static PatientAttendantService patientAttendantService;
+    private static NettySessionRegistry nettySessionRegistry;
     @Autowired
-    public ChatController(ChatMessageService chatMessageService, UploadConfig uploadConfig, RoomService roomService, PatientAttendantService patientAttendantService) {
+    public ChatController(ChatMessageService chatMessageService, UploadConfig uploadConfig, RoomService roomService, PatientAttendantService patientAttendantService, NettySessionRegistry nettySessionRegistry) {
         ChatController.chatMessageService = chatMessageService;
         ChatController.uploadConfig = uploadConfig;
         ChatController.roomService = roomService;
         ChatController.patientAttendantService = patientAttendantService;
+        ChatController.nettySessionRegistry = nettySessionRegistry;
     }
     /**
      * 医生发起问诊
@@ -123,6 +128,15 @@ public class ChatController {
             e.printStackTrace();
             return Result.fail(500, "响应问诊失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 兼容旧前端：患者响应问诊请求（别名）
+     * doctor-front 曾使用 /chat/respond
+     */
+    @PostMapping("/respond")
+    public Result<String> respondToConsultationAlias(@RequestBody Map<String, Object> request) {
+        return respondToConsultation(request);
     }
 
     /**
@@ -232,11 +246,111 @@ public class ChatController {
             wsMessage.put("createTime", message.getCreateTime());
 
             ChatWebSocket.broadcastToChatRoom(message.getRoomId().toString(), wsMessage);
+            if (nettySessionRegistry != null) {
+                nettySessionRegistry.broadcast(message.getRoomId().toString(), JSON.toJSONString(wsMessage));
+            }
 
             return Result.ok("消息发送成功");
         } catch (Exception e) {
             e.printStackTrace();
             return Result.fail(500, "发送消息失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 兼容旧前端：发送消息（别名）
+     * doctor-front 曾使用 /chat/message
+     */
+    @PostMapping("/message")
+    public Result<String> sendMessageAlias(@RequestBody ChatMessage message) {
+        return sendMessage(message);
+    }
+
+    /**
+     * 更新房间状态（用于医生端结束/处理超时房间等场景）
+     * doctor-front 使用：PUT /chat/room/{roomId}/status
+     */
+    @PutMapping("/room/{roomId}/status")
+    public Result<String> updateRoomStatus(@PathVariable Long roomId, @RequestBody Map<String, Object> body) {
+        try {
+            Room room = roomService.getById(roomId);
+            if (room == null) {
+                return Result.fail(404, "房间不存在");
+            }
+
+            Integer status = null;
+            if (body != null) {
+                Object raw = body.get("status");
+                if (raw == null) {
+                    raw = body.get("roomStatus");
+                }
+                if (raw == null) {
+                    raw = body.get("room_status");
+                }
+                if (raw != null) {
+                    status = Integer.valueOf(raw.toString());
+                }
+            }
+            if (status == null) {
+                return Result.fail(400, "缺少 status 参数");
+            }
+
+            room.setRoomStatus(status);
+            room.setUpdateTime(new Date());
+            roomService.updateById(room);
+
+            // 广播房间状态更新（尽量兼容前端字段）
+            Map<String, Object> roomStatusMessage = new HashMap<>();
+            roomStatusMessage.put("type", "room_status_update");
+            roomStatusMessage.put("room_status", status);
+            roomStatusMessage.put("roomId", roomId);
+            roomStatusMessage.put("timestamp", new Date());
+            ChatWebSocket.broadcastToChatRoom(roomId.toString(), roomStatusMessage);
+            broadcastToNettyRoom(roomId, roomStatusMessage);
+
+            return Result.ok("状态更新成功");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.fail(500, "更新房间状态失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取患者响应状态（最小实现：返回对应房间当前状态）
+     * doctor-front 使用：GET /chat/patient-response/{registrationId}
+     */
+    @GetMapping("/patient-response/{registrationId}")
+    public Result<Map<String, Object>> getPatientResponseStatus(@PathVariable Long registrationId) {
+        try {
+            Room room = roomService.getRoomByRegistrationId(registrationId);
+            Map<String, Object> resp = new HashMap<>();
+            resp.put("registrationId", registrationId);
+            if (room != null) {
+                resp.put("roomId", room.getId());
+                resp.put("roomStatus", room.getRoomStatus());
+            }
+            return Result.ok(resp);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.fail(500, "获取患者响应状态失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取等待患者确认的问诊列表（最小实现：返回 room.roomStatus=1 的房间）
+     * doctor-front 早期版本使用：GET /chat/waiting-patients
+     */
+    @GetMapping("/waiting-patients")
+    public Result<List<Room>> getWaitingPatients() {
+        try {
+            LambdaQueryWrapper<Room> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(Room::getRoomStatus, 1);
+            wrapper.eq(Room::getIsDeleted, 0);
+            wrapper.orderByDesc(Room::getUpdateTime);
+            return Result.ok(roomService.list(wrapper));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.fail(500, "获取等待列表失败: " + e.getMessage());
         }
     }
     @GetMapping("/room-by-id/{roomId}")
@@ -326,6 +440,7 @@ public class ChatController {
             
             // 广播给聊天房间的所有用户
             ChatWebSocket.broadcastToChatRoom(roomId.toString(), endMessage);
+            broadcastToNettyRoom(roomId, endMessage);
             
             // 发送状态更新消息
             Map<String, Object> statusMessage = new HashMap<>();
@@ -335,6 +450,7 @@ public class ChatController {
             statusMessage.put("timestamp", new Date());
             
             ChatWebSocket.broadcastToChatRoom(roomId.toString(), statusMessage);
+            broadcastToNettyRoom(roomId, statusMessage);
             
             // 发送房间状态更新消息
             Map<String, Object> roomStatusMessage = new HashMap<>();
@@ -344,6 +460,7 @@ public class ChatController {
             roomStatusMessage.put("timestamp", new Date());
             
             ChatWebSocket.broadcastToChatRoom(roomId.toString(), roomStatusMessage);
+            broadcastToNettyRoom(roomId, roomStatusMessage);
             
             // 通知患者端断开连接
             if (room.getPatientId() != null) {
@@ -391,11 +508,8 @@ public class ChatController {
             }
             String fileName = "chat_" + roomId + "_" + UUID.randomUUID().toString() + fileExtension;
 
-            // 获取上传token
-            String token = UploadUtil.uploadToken(uploadConfig);
-
-            // 上传到七牛云
-            String imageUrl = UploadUtil.putPhoto(file.getInputStream(), fileName, token);
+            // 上传到 MinIO
+            String imageUrl = UploadUtil.putPhoto(uploadConfig, file.getInputStream(), fileName);
 
             // 保存消息记录
             ChatMessage chatMessage = new ChatMessage();
@@ -428,6 +542,7 @@ public class ChatController {
             wsMessage.put("createTime", chatMessage.getCreateTime());
 
             ChatWebSocket.broadcastToChatRoom(roomId.toString(), wsMessage);
+            broadcastToNettyRoom(roomId, wsMessage);
 
             // 返回图片URL
             Map<String, Object> result = new HashMap<>();
@@ -441,5 +556,12 @@ public class ChatController {
             e.printStackTrace();
             return Result.fail(500, "图片上传失败: " + e.getMessage());
         }
+    }
+
+    private static void broadcastToNettyRoom(Long roomId, Map<String, Object> message) {
+        if (nettySessionRegistry == null || roomId == null || message == null) {
+            return;
+        }
+        nettySessionRegistry.broadcast(roomId.toString(), JSON.toJSONString(message));
     }
 }

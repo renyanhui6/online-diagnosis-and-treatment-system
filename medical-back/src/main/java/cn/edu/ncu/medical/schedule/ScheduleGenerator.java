@@ -2,15 +2,22 @@ package cn.edu.ncu.medical.schedule;
 
 import cn.edu.ncu.medical.entity.*;
 import cn.edu.ncu.medical.mapper.*;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.context.event.EventListener;
 
 import java.sql.Date;
 import java.time.LocalDate;
 import java.util.List;
 
+@Slf4j
 @Component
+@ConditionalOnProperty(prefix = "app.schedule", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class ScheduleGenerator {
     
     @Autowired
@@ -22,12 +29,45 @@ public class ScheduleGenerator {
     @Autowired
     private SubDepartmentMapper subDepartmentMapper;
 
-    // 每天凌晨1点生成未来3天排班
-    @Scheduled(cron = "0 35 0 * * ?")
-    public void generateSchedules() {
+    /**
+     * 未来多少天的排班需要“保证存在”。
+     * 说明：生成逻辑是幂等的（existsSchedule + insert），所以可重复执行做补偿。
+     */
+    @Value("${app.schedule.generate-days-ahead:7}")
+    private int daysAhead;
+
+    @Value("${app.schedule.skip-weekends:true}")
+    private boolean skipWeekends;
+
+    /**
+     * 启动后先补齐一次（避免错过凌晨定时任务导致当天无排班）。
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void ensureOnStartup() {
+        safeEnsureSchedules("startup");
+    }
+
+    /**
+     * 定期补偿：即使错过某次 cron，也能在下一次周期补齐。
+     */
+    @Scheduled(fixedDelayString = "${app.schedule.ensure-interval-ms:3600000}")
+    public void ensureSchedulesPeriodically() {
+        safeEnsureSchedules("periodic");
+    }
+
+    public void ensureSchedulesForNextDays(int daysAhead) {
         LocalDate today = LocalDate.now();
-        for (int i = 0; i <= 3; i++) {
+        int safeDaysAhead = Math.max(0, daysAhead);
+        for (int i = 0; i <= safeDaysAhead; i++) {
             generateDailySchedules(today.plusDays(i));
+        }
+    }
+
+    private void safeEnsureSchedules(String trigger) {
+        try {
+            ensureSchedulesForNextDays(daysAhead);
+        } catch (Exception e) {
+            log.warn("Ensure schedules failed (trigger={}, daysAhead={})", trigger, daysAhead, e);
         }
     }
     //生成当天的排版
@@ -35,7 +75,7 @@ public class ScheduleGenerator {
         // 1. 获取星期几 (1-7)
         int dayOfWeek = date.getDayOfWeek().getValue();
         //如果是周六日那么就不生成排版
-        if (dayOfWeek == 6 || dayOfWeek == 7) {
+        if (skipWeekends && (dayOfWeek == 6 || dayOfWeek == 7)) {
             return;
         }
         // 2. 查询当天的排班模板

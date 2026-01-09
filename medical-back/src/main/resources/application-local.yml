@@ -1,0 +1,65 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /treat
+
+spring:
+  config:
+    import: optional:classpath:application-local.secret.yml
+
+  # 本地启动使用 MySQL（用于跑完整业务数据与排班/挂号流程）
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://47.122.118.231:3306/OnlineTreat?serverTimezone=Asia/Shanghai
+    username: root
+    password: Qwer_1234
+
+  # 本地若没有 Redis/RabbitMQ：保持配置，但关闭监听/自动声明，避免启动阶段阻塞
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 20000
+      username:
+      password:
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    dynamic: false
+    listener:
+      simple:
+        auto-startup: false
+      direct:
+        auto-startup: false
+
+app:
+  auth:
+    enabled: false
+    dev-user-id: 1
+    dev-username: dev
+  redis:
+    listener-enabled: false
+    fallback-enabled: true
+  rabbit:
+    enabled: false
+  schedule:
+    enabled: true
+  registration:
+    reconcile-enabled: true
+
+ai:
+  deepseek:
+    base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+    api-key: ${DEEPSEEK_API_KEY:}
+    model: ${DEEPSEEK_MODEL:deepseek-chat}
+    timeout-seconds: ${DEEPSEEK_TIMEOUT_SECONDS:20}
+
+upload:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket: ${MINIO_BUCKET:medical}
+  public-url-prefix: ${MINIO_PUBLIC_URL_PREFIX:http://localhost:9000/medical}

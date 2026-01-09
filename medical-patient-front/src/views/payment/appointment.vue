@@ -514,13 +514,14 @@ onMounted(() => {
 .appointment-payment-container {
   max-width: 1200px;
   margin: 0 auto;
+  padding: 12px;
 }
 
 .payment-card {
   margin-bottom: 20px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
-  border: 1px solid rgba(135, 206, 250, 0.2);
-  box-shadow: 0 4px 20px rgba(135, 206, 250, 0.1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgb(var(--primary-50-rgb) / 0.55) 100%);
+  border: 1px solid rgb(var(--primary-200-rgb) / 0.22);
+  box-shadow: var(--shadow-lg);
 }
 
 .card-header {
@@ -533,8 +534,7 @@ onMounted(() => {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #2c5aa0;
-  text-shadow: 0 1px 2px rgba(135, 206, 250, 0.1);
+  color: var(--neutral-800);
 }
 
 .header-actions {
@@ -551,7 +551,7 @@ onMounted(() => {
 
 .price {
   font-weight: 600;
-  color: #2c5aa0;
+  color: var(--warning);
 }
 
 .action-buttons {
@@ -586,7 +586,7 @@ onMounted(() => {
 .payment-amount {
   margin-bottom: 20px;
   font-size: 16px;
-  color: #2c5aa0;
+  color: var(--neutral-700);
 }
 
 /* 退款对话框样式 */

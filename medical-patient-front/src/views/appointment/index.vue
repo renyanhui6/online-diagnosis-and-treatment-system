@@ -5,6 +5,7 @@
         <div class="card-header">
           <h2>预约挂号</h2>
           <el-button type="primary" @click="goToAppointmentList">我的预约</el-button>
+          <el-button type="info" plain @click="triageDialogVisible = true">AI 推荐科室</el-button>
         </div>
       </template>
       
@@ -201,7 +202,7 @@
         <div v-if="!hasValidPatients" class="no-patients-tip">
           <el-empty description="暂无可用就诊人">
             <template #image>
-              <el-icon :size="60" color="#409EFF"><User /></el-icon>
+              <el-icon :size="60" color="var(--primary-600)"><User /></el-icon>
             </template>
             <template #description>
               <p>您还没有完成实名认证的就诊人</p>
@@ -277,6 +278,53 @@
         </div>
       </div>
     </el-card>
+
+    <el-dialog
+      v-model="triageDialogVisible"
+      title="AI 科室推荐（仅供参考）"
+      width="520px"
+    >
+      <el-form :model="triageForm" label-width="90px">
+        <el-form-item label="症状描述">
+          <el-input
+            v-model="triageForm.description"
+            type="textarea"
+            :rows="4"
+            placeholder="请描述主要症状，例如：持续咳嗽三天伴低热、轻度胸闷"
+          />
+        </el-form-item>
+      </el-form>
+      <el-alert
+        title="AI 推荐仅供参考，如症状严重请直接就医。"
+        type="warning"
+        :closable="false"
+        show-icon
+        style="margin-bottom: 10px"
+      />
+      <div v-if="triageResult.recommendedDepartments.length" class="triage-result">
+        <p>推荐科室：<strong>{{ triageResult.recommendedDepartments.join('，') }}</strong></p>
+        <small>{{ triageResult.rationale }}</small>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="triageDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="triageLoading" @click="fetchTriageSuggestion">获取推荐</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="aiUnavailableDialogVisible"
+      title="AI 服务不可用：模型 & 价格"
+      width="720px"
+    >
+      <pre class="ai-unavailable-pre">{{ aiUnavailableText }}</pre>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button type="primary" @click="aiUnavailableDialogVisible = false">我知道了</el-button>
+        </span>
+      </template>
+    </el-dialog>
     
 
   </div>
@@ -289,6 +337,7 @@ import { ElMessage } from 'element-plus'
 import { Plus, User, Checked, OfficeBuilding } from '@element-plus/icons-vue'
 import { getDepartmentList, getSubDepartmentList, getScheduleList, createAppointment } from '../../api/appointment'
 import { getCaseList } from '../../api/user'
+import { getTriageSuggestion } from '../../api/ai'
 import { getFutureDates, formatDate } from '../../utils'
 
 const router = useRouter()
@@ -323,6 +372,43 @@ const patients = ref([])
 
 // 加载状态
 const submitting = ref(false)
+const triageLoading = ref(false)
+const triageDialogVisible = ref(false)
+const aiUnavailableDialogVisible = ref(false)
+const aiUnavailableText = ref('')
+
+const AI_UNAVAILABLE_FALLBACK = `AI 服务不可用：模型 & 价格
+
+模型 & 价格
+下表所列模型价格以“百万 tokens”为单位。Token 是模型用来表示自然语言文本的的最小单位，可以是一个词、一个数字或一个标点符号等。我们将根据模型输入和输出的总 token 数进行计量计费。
+
+模型细节
+模型\tdeepseek-chat\tdeepseek-reasoner\tdeepseek-reasoner(1)
+BASE URL\thttps://api.deepseek.com\thttps://api.deepseek.com/\tv3.2_speciale_expires_on_20251215
+模型版本\tDeepSeek-V3.2（非思考模式）\tDeepSeek-V3.2（思考模式）\tDeepSeek-V3.2-Speciale（只支持思考模式）
+上下文长度\t128K
+输出长度\t默认 4K，最大 8K\t默认 32K，最大 64K\t默认 128K，最大 128K
+功能\tJson Output\t支持\t支持\t不支持
+\tTool Calls\t支持\t支持\t不支持
+\t对话前缀续写（Beta）\t支持\t支持\t不支持
+\tFIM 补全（Beta）\t支持\t不支持\t不支持
+价格\t百万tokens输入（缓存命中）\t0.2元
+\t百万tokens输入（缓存未命中）\t2元
+\t百万tokens输出\t3元
+
+(1) 用户可以通过设置 base_url="https://api.deepseek.com/v3.2_speciale_expires_on_20251215" 访问 DeepSeek-V3.2-Speciale 模型。该模型只支持思考模式，支持时间截止至北京时间 2025-12-15 23:59。
+
+扣费规则
+扣减费用 = token 消耗量 × 模型单价，对应的费用将直接从充值余额或赠送余额中进行扣减。当充值余额与赠送余额同时存在时，优先扣减赠送余额。
+
+产品价格可能发生变动，DeepSeek 保留修改价格的权利。请您依据实际用量按需充值，定期查看此页面以获知最新价格信息。`
+const triageForm = reactive({
+  description: ''
+})
+const triageResult = reactive({
+  recommendedDepartments: [],
+  rationale: ''
+})
 
 // 计算属性：上午排班
 const morningSchedules = computed(() => {
@@ -382,6 +468,38 @@ const getScheduleTimeSlot = (schedule) => {
 const formatDateDisplay = (dateStr) => {
   const date = new Date(dateStr)
   return `${date.getMonth() + 1}月${date.getDate()}日`
+}
+
+// AI 推荐科室
+const fetchTriageSuggestion = async () => {
+  if (!triageForm.description || !triageForm.description.trim()) {
+    ElMessage.warning('请先填写症状描述')
+    return
+  }
+  triageLoading.value = true
+  try {
+    triageResult.recommendedDepartments = []
+    triageResult.rationale = ''
+    const resp = await getTriageSuggestion({
+      description: triageForm.description
+    })
+    if (resp.code === 200 && resp.data) {
+      triageResult.recommendedDepartments = resp.data.recommendedDepartments || []
+      triageResult.rationale = resp.data.rationale || ''
+    } else {
+      ElMessage.warning(resp.message || '获取推荐失败')
+    }
+  } catch (error) {
+    console.error('AI 推荐失败', error)
+    if (error && error.code === 9001) {
+      aiUnavailableText.value = error.message || AI_UNAVAILABLE_FALLBACK
+      aiUnavailableDialogVisible.value = true
+      return
+    }
+    ElMessage.error(error.message || 'AI 推荐失败')
+  } finally {
+    triageLoading.value = false
+  }
 }
 
 // 下一步
@@ -498,7 +616,7 @@ const selectSchedule = (schedule) => {
 
 // 跳转到添加就诊人页面
 const goToAddPatient = () => {
-  router.push('/profile/cases')
+  router.push({ path: '/user', query: { tab: 'patients', action: 'addPatient' } })
 }
 
 // 跳转到实名认证页面
@@ -645,8 +763,8 @@ onMounted(async () => {
 <style scoped>
 .appointment-container {
   min-height: 70vh;
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 30%, #93c5fd 70%, #60a5fa 100%);
-  padding: 20px;
+  background: transparent;
+  padding: 8px;
   position: relative;
   overflow-x: hidden;
 }
@@ -665,8 +783,8 @@ onMounted(async () => {
 }
 
 .date-item {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border: 2px solid rgba(59, 130, 246, 0.1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, var(--neutral-50) 100%);
+  border: 2px solid rgb(var(--primary-500-rgb) / 0.18);
   border-radius: 12px;
   padding: 15px 20px;
   min-width: 100px;
@@ -678,22 +796,22 @@ onMounted(async () => {
 
 .date-item:not(.date-disabled):hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: 0 8px 25px rgb(var(--primary-500-rgb) / 0.25);
+  border-color: rgb(var(--primary-500-rgb) / 0.35);
 }
 
 .date-selected {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
   color: #ffffff;
-  border-color: #1d4ed8;
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+  border-color: var(--primary-700);
+  box-shadow: 0 6px 20px rgb(var(--primary-500-rgb) / 0.35);
 }
 
 .date-disabled {
-  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-  color: #94a3b8;
+  background: linear-gradient(135deg, var(--neutral-100) 0%, var(--neutral-200) 100%);
+  color: var(--neutral-400);
   cursor: not-allowed !important;
-  border-color: #e2e8f0;
+  border-color: var(--neutral-200);
 }
 
 .date-disabled:hover {
@@ -714,7 +832,7 @@ onMounted(async () => {
 .date-value {
   font-size: 16px;
   font-weight: 700;
-  color: #1e40af;
+  color: var(--primary-800);
 }
 
 .date-selected .date-value {
@@ -723,7 +841,7 @@ onMounted(async () => {
 
 .date-status {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--neutral-400);
   margin-top: 5px;
 }
 
@@ -735,7 +853,7 @@ onMounted(async () => {
 }
 
 .no-patients-tip .el-empty__description p {
-  color: #64748b;
+  color: var(--neutral-600);
   font-size: 14px;
   margin: 5px 0;
 }
@@ -753,8 +871,8 @@ onMounted(async () => {
 }
 
 .patient-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border: 2px solid rgba(59, 130, 246, 0.1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, var(--neutral-50) 100%);
+  border: 2px solid rgb(var(--primary-500-rgb) / 0.18);
   border-radius: 12px;
   transition: all 0.3s ease;
   height: 100%;
@@ -763,8 +881,8 @@ onMounted(async () => {
 
 .patient-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: 0 8px 25px rgb(var(--primary-500-rgb) / 0.25);
+  border-color: rgb(var(--primary-500-rgb) / 0.35);
 }
 
 .patient-info {
@@ -774,19 +892,19 @@ onMounted(async () => {
 .patient-info h4 {
   font-size: 16px;
   font-weight: 600;
-  color: #1e40af;
+  color: var(--primary-800);
   margin-bottom: 8px;
 }
 
 .patient-info p {
   font-size: 14px;
-  color: #64748b;
+  color: var(--neutral-600);
   margin-bottom: 5px;
 }
 
 .add-patient-card {
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  border: 2px dashed rgba(59, 130, 246, 0.3);
+  background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%);
+  border: 2px dashed rgb(var(--primary-500-rgb) / 0.35);
   border-radius: 12px;
   padding: 20px;
   text-align: center;
@@ -799,16 +917,16 @@ onMounted(async () => {
 }
 
 .add-patient-card:hover {
-  background: linear-gradient(135deg, #e0f2fe 0%, #bfdbfe 100%);
+  background: linear-gradient(135deg, var(--primary-100) 0%, var(--primary-200) 100%);
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 8px 25px rgb(var(--primary-500-rgb) / 0.18);
 }
 
 .add-patient-card p {
   margin-top: 10px;
   font-size: 14px;
   font-weight: 600;
-  color: #3b82f6;
+  color: var(--primary-600);
 }
 
 /* 医生卡片样式 */
@@ -817,8 +935,8 @@ onMounted(async () => {
 }
 
 .doctor-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border: 2px solid rgba(59, 130, 246, 0.1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, var(--neutral-50) 100%);
+  border: 2px solid rgb(var(--primary-500-rgb) / 0.18);
   border-radius: 12px;
   padding: 15px;
   transition: all 0.3s ease;
@@ -828,15 +946,15 @@ onMounted(async () => {
 
 .doctor-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: 0 8px 25px rgb(var(--primary-500-rgb) / 0.25);
+  border-color: rgb(var(--primary-500-rgb) / 0.35);
 }
 
 .doctor-selected {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
   color: #ffffff;
-  border-color: #1d4ed8;
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+  border-color: var(--primary-700);
+  box-shadow: 0 6px 20px rgb(var(--primary-500-rgb) / 0.35);
 }
 
 .doctor-info {
@@ -852,7 +970,7 @@ onMounted(async () => {
 .doctor-details h4 {
   font-size: 16px;
   font-weight: 600;
-  color: #1e40af;
+  color: var(--primary-800);
   margin-bottom: 5px;
 }
 
@@ -862,16 +980,16 @@ onMounted(async () => {
 
 .doctor-details p {
   font-size: 14px;
-  color: #64748b;
+  color: var(--neutral-600);
   margin: 0;
 }
 
 .doctor-selected .doctor-details p {
-  color: #e2e8f0;
+  color: rgb(255 255 255 / 0.82);
 }
 
 .schedule-info {
-  border-top: 1px solid rgba(59, 130, 246, 0.1);
+  border-top: 1px solid rgb(var(--primary-500-rgb) / 0.18);
   padding-top: 10px;
 }
 
@@ -882,7 +1000,7 @@ onMounted(async () => {
 .schedule-time {
   font-size: 14px;
   font-weight: 600;
-  color: #1e40af;
+  color: var(--primary-800);
   margin-bottom: 5px;
 }
 
@@ -892,30 +1010,30 @@ onMounted(async () => {
 
 .schedule-remaining {
   font-size: 13px;
-  color: #64748b;
+  color: var(--neutral-600);
   margin-bottom: 5px;
 }
 
 .doctor-selected .schedule-remaining {
-  color: #e2e8f0;
+  color: rgb(255 255 255 / 0.82);
 }
 
 .few-remaining {
-  color: #ef4444;
+  color: var(--error);
   font-weight: 600;
 }
 
 .doctor-selected .few-remaining {
-  color: #fecaca;
+  color: rgb(255 255 255 / 0.9);
 }
 
 .schedule-fee {
   font-size: 13px;
-  color: #64748b;
+  color: var(--neutral-600);
 }
 
 .doctor-selected .schedule-fee {
-  color: #e2e8f0;
+  color: rgb(255 255 255 / 0.82);
 }
 
 .appointment-container::before {
@@ -926,9 +1044,9 @@ onMounted(async () => {
   right: 0;
   bottom: 0;
   background: 
-    radial-gradient(circle at 25% 25%, rgba(37, 99, 235, 0.2) 0%, transparent 50%),
-    radial-gradient(circle at 75% 75%, rgba(29, 78, 216, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+    radial-gradient(circle at 25% 25%, rgb(var(--primary-500-rgb) / 0.22) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, rgb(var(--primary-700-rgb) / 0.16) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgb(var(--primary-400-rgb) / 0.12) 0%, transparent 70%);
   pointer-events: none;
   animation: backgroundPulse 10s ease-in-out infinite;
 }
@@ -939,11 +1057,11 @@ onMounted(async () => {
 }
 
 .appointment-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, var(--neutral-100) 100%);
   border-radius: 20px;
   padding: 35px;
-  box-shadow: 0 10px 40px rgba(37, 99, 235, 0.15);
-  border: 2px solid rgba(59, 130, 246, 0.2);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid rgb(var(--primary-200-rgb) / 0.45);
   position: relative;
   z-index: 2;
   overflow: hidden;
@@ -956,7 +1074,7 @@ onMounted(async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.03) 0%, transparent 50%);
+  background: linear-gradient(135deg, rgb(var(--primary-500-rgb) / 0.06) 0%, transparent 50%);
   pointer-events: none;
 }
 
@@ -969,9 +1087,9 @@ onMounted(async () => {
 .card-header h2 {
   font-size: 32px;
   font-weight: 700;
-  color: #1e40af;
+  color: var(--primary-800);
   margin-bottom: 15px;
-  text-shadow: 0 2px 8px rgba(30, 64, 175, 0.2);
+  text-shadow: 0 2px 8px rgb(var(--primary-800-rgb) / 0.22);
 }
 
 .card-header::after {
@@ -982,7 +1100,7 @@ onMounted(async () => {
   transform: translateX(-50%);
   width: 100px;
   height: 4px;
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(90deg, var(--primary-500) 0%, var(--primary-600) 100%);
   border-radius: 2px;
 }
 
@@ -993,19 +1111,19 @@ onMounted(async () => {
 .section-title {
   font-size: 20px;
   font-weight: 600;
-  color: #1e40af;
+  color: var(--primary-800);
   margin-bottom: 20px;
   display: flex;
   align-items: center;
   gap: 10px;
-  text-shadow: 0 1px 3px rgba(30, 64, 175, 0.1);
+  text-shadow: 0 1px 3px rgb(var(--primary-800-rgb) / 0.14);
 }
 
 .section-title::before {
   content: '';
   width: 4px;
   height: 20px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
   border-radius: 2px;
 }
 
@@ -1017,8 +1135,8 @@ onMounted(async () => {
 }
 
 .department-item {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border: 2px solid rgba(59, 130, 246, 0.1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, var(--neutral-50) 100%);
+  border: 2px solid rgb(var(--primary-500-rgb) / 0.18);
   border-radius: 12px;
   padding: 20px;
   text-align: center;
@@ -1035,7 +1153,7 @@ onMounted(async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
+  background: linear-gradient(135deg, rgb(var(--primary-500-rgb) / 0.08) 0%, transparent 50%);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -1046,23 +1164,23 @@ onMounted(async () => {
 
 .department-item:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: 0 8px 25px rgb(var(--primary-500-rgb) / 0.25);
+  border-color: rgb(var(--primary-500-rgb) / 0.35);
 }
 
 .department-item.selected {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
   color: #ffffff;
-  border-color: #1d4ed8;
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+  border-color: var(--primary-700);
+  box-shadow: 0 6px 20px rgb(var(--primary-500-rgb) / 0.35);
 }
 
 .department-name {
   font-size: 16px;
   font-weight: 600;
-  color: #1e40af;
+  color: var(--primary-800);
   margin-bottom: 8px;
-  text-shadow: 0 1px 2px rgba(30, 64, 175, 0.1);
+  text-shadow: 0 1px 2px rgb(var(--primary-800-rgb) / 0.12);
 }
 
 .department-item.selected .department-name {
@@ -1072,7 +1190,7 @@ onMounted(async () => {
 
 .sub-department-name {
   font-size: 14px;
-  color: #64748b;
+  color: var(--neutral-600);
   font-weight: 500;
 }
 
@@ -1502,5 +1620,18 @@ onMounted(async () => {
   font-size: 14px;
   color: #1e40af;
   font-weight: 500;
+}
+
+.ai-unavailable-pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 60vh;
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgb(var(--primary-500-rgb) / 0.15);
+  color: var(--neutral-900);
 }
 </style>

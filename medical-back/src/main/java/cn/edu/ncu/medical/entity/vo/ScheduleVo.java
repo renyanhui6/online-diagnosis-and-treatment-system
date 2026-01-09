@@ -32,4 +32,9 @@ public class ScheduleVo {
 	private Integer currentAppointmentCount;
 
 	private Integer appointmentLimit;
+
+	/**
+	 * 是否可预约（与后端创建挂号订单的时间规则保持一致）。
+	 */
+	private Boolean canBook;
 }

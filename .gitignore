@@ -1,0 +1,6 @@
+.m2/
+medical-back/src/main/resources/application-local.secret.yml
+.env
+.env.*
+*.log
+!work.log

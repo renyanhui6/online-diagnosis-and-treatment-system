@@ -259,6 +259,23 @@ const greeting = computed(() => {
 
 const weatherText = '天气晴朗，适合出行';
 
+function cssVar(name, fallback) {
+  try {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return value || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+const theme = reactive({
+  brand600: '#2563eb',
+  brand700: '#1d4ed8',
+  success: '#10b981',
+  warning: '#f59e0b',
+  danger: '#ef4444'
+});
+
 // 模拟仪表盘数据
 const dashboardData = reactive({
   onlineDoctors: 18,
@@ -276,9 +293,9 @@ const dashboardData = reactive({
 
 const loadColor = computed(() => {
   const load = dashboardData.systemLoad;
-  if (load < 60) return '#67C23A';
-  if (load < 80) return '#E6A23C';
-  return '#F56C6C';
+  if (load < 60) return theme.success;
+  if (load < 80) return theme.warning;
+  return theme.danger;
 });
 
 // 模拟告警数据
@@ -582,6 +599,12 @@ function handleResize() {
 }
 
 onMounted(() => {
+  theme.brand600 = cssVar('--brand-600', theme.brand600);
+  theme.brand700 = cssVar('--brand-700', theme.brand700);
+  theme.success = cssVar('--el-color-success', theme.success);
+  theme.warning = cssVar('--el-color-warning', theme.warning);
+  theme.danger = cssVar('--el-color-danger', theme.danger);
+
   // 初始化图表
   setTimeout(() => {
     initCharts();
@@ -609,14 +632,15 @@ onUnmounted(() => {
 }
 
 .welcome-card {
-  background: linear-gradient(135deg, #1890ff, #722ed1);
-  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.95), rgba(29, 78, 216, 0.88));
+  border-radius: var(--app-radius);
   padding: 20px;
   color: #fff;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--app-shadow);
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .welcome-info {
@@ -674,7 +698,7 @@ onUnmounted(() => {
 }
 
 .status-value.normal {
-  color: #52c41a;
+  color: var(--el-color-success);
 }
 
 .data-overview {
@@ -692,7 +716,7 @@ onUnmounted(() => {
 
 .data-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--app-shadow);
 }
 
 .data-icon {
@@ -708,19 +732,19 @@ onUnmounted(() => {
 }
 
 .total-appointments {
-  background-color: #1890ff;
+  background-color: var(--brand-600);
 }
 
 .total-consultations {
-  background-color: #52c41a;
+  background-color: var(--el-color-success);
 }
 
 .total-income {
-  background-color: #722ed1;
+  background-color: var(--brand-700);
 }
 
 .satisfaction {
-  background-color: #f5222d;
+  background-color: var(--el-color-danger);
 }
 
 .data-info {
@@ -729,14 +753,14 @@ onUnmounted(() => {
 
 .data-title {
   font-size: 14px;
-  color: #909399;
+  color: rgba(15, 23, 42, 0.55);
   margin-bottom: 8px;
 }
 
 .data-value {
   font-size: 24px;
   font-weight: 600;
-  color: #303133;
+  color: var(--app-text);
   margin-bottom: 8px;
 }
 
@@ -747,11 +771,11 @@ onUnmounted(() => {
 }
 
 .data-compare.up {
-  color: #52c41a;
+  color: var(--el-color-success);
 }
 
 .data-compare.down {
-  color: #f5222d;
+  color: var(--el-color-danger);
 }
 
 .charts-section {
@@ -777,7 +801,7 @@ onUnmounted(() => {
 }
 
 .alert-row-danger {
-  background-color: #fff1f0;
+  background-color: rgba(239, 68, 68, 0.06);
 }
 
 /* 响应式调整 */

@@ -2,6 +2,7 @@ package cn.edu.ncu.medical.websocket;
 
 import cn.edu.ncu.medical.entity.ChatMessage;
 import cn.edu.ncu.medical.entity.Room;
+import cn.edu.ncu.medical.netty.NettySessionRegistry;
 import cn.edu.ncu.medical.service.ChatMessageService;
 import cn.edu.ncu.medical.service.RoomService;
 import cn.edu.ncu.medical.utils.JwtUtil;
@@ -28,6 +29,7 @@ public class ChatWebSocket {
 
     private static ChatMessageService chatMessageService;
     private static RoomService roomService;
+    private static NettySessionRegistry nettySessionRegistry;
 
 
     @Autowired
@@ -40,6 +42,10 @@ public class ChatWebSocket {
         ChatWebSocket.roomService = roomService;
     }
 
+    @Autowired
+    public void setNettySessionRegistry(NettySessionRegistry nettySessionRegistry) {
+        ChatWebSocket.nettySessionRegistry = nettySessionRegistry;
+    }
 
 
     // 存储患者长连接（用于接收问诊请求）
@@ -219,6 +225,7 @@ public class ChatWebSocket {
             notification.put("timestamp", new Date());
 
             broadcastToChatRoom(roomId, notification);
+            broadcastToNettyRoom(roomId, JSON.toJSONString(notification));
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -288,6 +295,7 @@ public class ChatWebSocket {
 
             // 广播给房间内所有连接
             broadcastToChatRoom(roomId, message);
+            broadcastToNettyRoom(roomId, message.toJSONString());
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -316,11 +324,24 @@ public class ChatWebSocket {
                 statusMessage.put("timestamp", new Date());
 
                 broadcastToChatRoom(roomId, statusMessage);
+                broadcastToNettyRoom(roomId, JSON.toJSONString(statusMessage));
             }
 
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private void broadcastToNettyRoom(String roomId, String json) {
+        if (nettySessionRegistry == null || roomId == null || json == null) {
+            return;
+        }
+        // 长连接（patient_x/doctor_x）不做房间广播，避免误发
+        boolean isNumericRoom = roomId.chars().allMatch(Character::isDigit);
+        if (!isNumericRoom) {
+            return;
+        }
+        nettySessionRegistry.broadcast(roomId, json);
     }
 
     // ========== 辅助方法 ==========
@@ -397,10 +418,17 @@ public class ChatWebSocket {
     // ========== 公共方法（供ChatController调用） ==========
 
     public static void sendToPatientLongConnection(Long patientId, Map<String, Object> notification) {
+        String json = JSON.toJSONString(notification);
+
+        // 同时向 Netty 长连接推送（灰度并存）
+        if (nettySessionRegistry != null) {
+            nettySessionRegistry.sendToPatient(patientId, json);
+        }
+
         Session session = patientLongConnections.get(patientId);
         if (session != null && session.isOpen()) {
             try {
-                session.getBasicRemote().sendText(JSON.toJSONString(notification));
+                session.getBasicRemote().sendText(json);
                 System.out.println("📤 向患者 " + patientId + " 发送通知: " + notification.get("type"));
             } catch (Exception e) {
                 e.printStackTrace();
@@ -411,10 +439,17 @@ public class ChatWebSocket {
     }
 
     public static void sendToDoctorLongConnection(Long doctorId, Map<String, Object> notification) {
+        String json = JSON.toJSONString(notification);
+
+        // 同时向 Netty 长连接推送（灰度并存）
+        if (nettySessionRegistry != null) {
+            nettySessionRegistry.sendToDoctor(doctorId, json);
+        }
+
         Session session = doctorLongConnections.get(doctorId);
         if (session != null && session.isOpen()) {
             try {
-                session.getBasicRemote().sendText(JSON.toJSONString(notification));
+                session.getBasicRemote().sendText(json);
                 System.out.println("�� 向医生 " + doctorId + " 发送通知: " + notification.get("type"));
             } catch (Exception e) {
                 e.printStackTrace();

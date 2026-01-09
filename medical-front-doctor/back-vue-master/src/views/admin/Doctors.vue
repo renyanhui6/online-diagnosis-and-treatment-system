@@ -932,19 +932,30 @@ onMounted(() => {
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  box-shadow: var(--app-shadow-sm);
+  backdrop-filter: blur(10px);
 }
 
 .page-header h2 {
   margin: 0;
-  font-size: 24px;
-  font-weight: 500;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--app-text);
+  letter-spacing: -0.2px;
 }
 
 .header-actions {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .doctors-card {
@@ -968,7 +979,7 @@ onMounted(() => {
 
 .doctor-gender {
   font-size: 12px;
-  color: #909399;
+  color: var(--app-text-muted);
 }
 
 .table-actions {
@@ -1000,8 +1011,8 @@ onMounted(() => {
   margin-bottom: 15px;
   font-size: 16px;
   font-weight: 500;
-  color: #303133;
-  border-bottom: 1px solid #ebeef5;
+  color: var(--app-text);
+  border-bottom: 1px solid var(--app-border);
   padding-bottom: 10px;
 }
 
@@ -1023,7 +1034,7 @@ onMounted(() => {
 
 .expand-label {
   width: 100px;
-  color: #909399;
+  color: var(--app-text-muted);
   font-size: 14px;
 }
 
@@ -1042,7 +1053,7 @@ onMounted(() => {
 .avatar-uploader {
   width: 100px;
   height: 100px;
-  border: 1px dashed #d9d9d9;
+  border: 1px dashed rgba(15, 23, 42, 0.22);
   border-radius: 6px;
   cursor: pointer;
   position: relative;
@@ -1051,12 +1062,12 @@ onMounted(() => {
 }
 
 .avatar-uploader:hover {
-  border-color: #409EFF;
+  border-color: var(--brand-600);
 }
 
 .avatar-uploader-icon {
   font-size: 28px;
-  color: #8c939d;
+  color: var(--app-text-muted);
   width: 100px;
   height: 100px;
   line-height: 100px;
@@ -1093,18 +1104,18 @@ onMounted(() => {
 }
 
 .el-table :deep(tbody tr:hover) {
-  transform: translateY(-2px);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+  box-shadow: var(--app-shadow-sm);
   z-index: 1;
   position: relative;
 }
 
 /* 表格样式增强 */
 .el-table :deep(th) {
-  background-color: #f5f7fa !important;
+  background-color: rgba(15, 23, 42, 0.03) !important;
 }
 
 .el-table :deep(.el-table__row:nth-child(even)) {
-  background-color: #fafafa;
+  background-color: rgba(15, 23, 42, 0.015);
 }
 </style>

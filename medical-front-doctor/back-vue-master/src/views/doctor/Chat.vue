@@ -15,6 +15,7 @@
       <div class="chat-actions">
         <el-button type="primary" @click="showRecordDialog">填写就诊记录</el-button>
         <el-button type="warning" @click="showPrescriptionDialog">开处方</el-button>
+        <el-button type="info" plain :loading="aiLoading" @click="fetchAiAssist">AI 辅助</el-button>
         <el-button type="success" @click="finishConsultation">结束问诊</el-button>
         <el-button type="info" @click="goBack" v-if="roomStatus === 3 || roomStatus === 4 || roomStatus === 5">返回</el-button>
         <el-button type="warning" @click="handleTimeoutRoom" v-if="roomStatus === 4">处理超时房间</el-button>
@@ -162,6 +163,52 @@
       </template>
     </el-dialog>
 
+    <!-- AI 辅助结果 -->
+    <el-dialog
+      v-model="aiDialogVisible"
+      title="AI 辅助建议（仅供参考）"
+      width="40%"
+    >
+      <el-skeleton :loading="aiLoading" animated>
+        <template #template>
+          <el-skeleton-item variant="text" style="width: 90%;"></el-skeleton-item>
+          <el-skeleton-item variant="text" style="width: 85%;"></el-skeleton-item>
+          <el-skeleton-item variant="text" style="width: 80%;"></el-skeleton-item>
+        </template>
+        <template #default>
+          <div class="ai-content">
+            <p class="ai-suggestion">{{ aiSuggestion }}</p>
+            <div v-if="aiFollowUp.length" class="ai-followup">
+              <h4>追问建议</h4>
+              <ul>
+                <li v-for="q in aiFollowUp" :key="q">{{ q }}</li>
+              </ul>
+            </div>
+            <el-alert
+              title="AI 生成内容仅供参考，请结合临床判断。"
+              type="warning"
+              :closable="false"
+              show-icon
+            />
+          </div>
+        </template>
+      </el-skeleton>
+    </el-dialog>
+
+    <!-- AI 服务不可用 -->
+    <el-dialog
+      v-model="aiUnavailableDialogVisible"
+      title="AI 服务不可用：模型 & 价格"
+      width="720px"
+    >
+      <pre class="ai-unavailable-pre">{{ aiUnavailableText }}</pre>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button type="primary" @click="aiUnavailableDialogVisible = false">我知道了</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
     <!-- 处方对话框 -->
     <el-dialog
       v-model="prescriptionDialogVisible"
@@ -259,6 +306,7 @@ import {
   updateRoomStatus,
   endConsultation
 } from '../../api/chat';
+import { getDoctorAssist } from '../../api/ai';
 import { addMedicalRecord, getAllDrugs, addPrescription, getAllRegistrationInfoList, getRegistrationList, getRegistrationById, changeStatusToSuspended, changeStatusToInProgress, changeStatusToCompleted } from '../../api/doctor';
 
 const router = useRouter();
@@ -277,6 +325,38 @@ const isConnected = ref(false);
 const roomStatus = ref(1); // 1-等待中, 2-进行中, 3-已结束, 4-患者超时未响应, 5-患者拒绝
 const systemMessage = ref('');
 const roomId = ref('');
+const aiDialogVisible = ref(false);
+const aiSuggestion = ref('');
+const aiFollowUp = ref([]);
+const aiLoading = ref(false);
+const aiUnavailableDialogVisible = ref(false);
+const aiUnavailableText = ref('');
+
+const AI_UNAVAILABLE_FALLBACK = `AI 服务不可用：模型 & 价格
+
+模型 & 价格
+下表所列模型价格以“百万 tokens”为单位。Token 是模型用来表示自然语言文本的的最小单位，可以是一个词、一个数字或一个标点符号等。我们将根据模型输入和输出的总 token 数进行计量计费。
+
+模型细节
+模型\tdeepseek-chat\tdeepseek-reasoner\tdeepseek-reasoner(1)
+BASE URL\thttps://api.deepseek.com\thttps://api.deepseek.com/\tv3.2_speciale_expires_on_20251215
+模型版本\tDeepSeek-V3.2（非思考模式）\tDeepSeek-V3.2（思考模式）\tDeepSeek-V3.2-Speciale（只支持思考模式）
+上下文长度\t128K
+输出长度\t默认 4K，最大 8K\t默认 32K，最大 64K\t默认 128K，最大 128K
+功能\tJson Output\t支持\t支持\t不支持
+\tTool Calls\t支持\t支持\t不支持
+\t对话前缀续写（Beta）\t支持\t支持\t不支持
+\tFIM 补全（Beta）\t支持\t不支持\t不支持
+价格\t百万tokens输入（缓存命中）\t0.2元
+\t百万tokens输入（缓存未命中）\t2元
+\t百万tokens输出\t3元
+
+(1) 用户可以通过设置 base_url="https://api.deepseek.com/v3.2_speciale_expires_on_20251215" 访问 DeepSeek-V3.2-Speciale 模型。该模型只支持思考模式，支持时间截止至北京时间 2025-12-15 23:59。
+
+扣费规则
+扣减费用 = token 消耗量 × 模型单价，对应的费用将直接从充值余额或赠送余额中进行扣减。当充值余额与赠送余额同时存在时，优先扣减赠送余额。
+
+产品价格可能发生变动，DeepSeek 保留修改价格的权利。请您依据实际用量按需充值，定期查看此页面以获知最新价格信息。`;
 
 // 表单引用
 // 表单引用
@@ -339,6 +419,40 @@ async function fetchDrugs() {
   } catch (error) {
     console.error('❌ 获取药品列表失败:', error);
     console.error('❌ 错误详情:', error.message);
+  }
+}
+
+// AI 辅助：取最近消息作为摘要
+const buildConversationSnippet = () => {
+  const slice = messages.value.slice(-5);
+  return slice.map(item => `${item.senderName || ''}: ${item.content || ''}`).join('\n').slice(0, 800);
+};
+
+async function fetchAiAssist() {
+  aiLoading.value = true;
+  try {
+    const payload = {
+      roomId: roomId.value,
+      summary: buildConversationSnippet(),
+      conversationSnippet: buildConversationSnippet()
+    };
+    const resp = await getDoctorAssist(payload);
+    if (resp.code === 200 && resp.data) {
+      aiSuggestion.value = resp.data.suggestion || '暂无建议';
+      aiFollowUp.value = resp.data.followUpQuestions || [];
+      aiDialogVisible.value = true;
+    } else if (resp.code === 9001) {
+      aiUnavailableText.value = resp.message || AI_UNAVAILABLE_FALLBACK;
+      aiUnavailableDialogVisible.value = true;
+    } else {
+      ElMessage.warning(resp.message || 'AI 辅助失败');
+    }
+  } catch (error) {
+    console.error('AI 辅助失败', error);
+    aiUnavailableText.value = AI_UNAVAILABLE_FALLBACK;
+    aiUnavailableDialogVisible.value = true;
+  } finally {
+    aiLoading.value = false;
   }
 }
 
@@ -1639,22 +1753,24 @@ watch(() => messages.value.length, () => {
 
 <style scoped>
 .chat-container {
-  height: 100vh;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
-  background: #f0f2f5;
-  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
+  background: transparent;
+  font-family: var(--el-font-family);
 }
 
 .chat-header {
-  background: white;
+  background: var(--app-surface);
+  backdrop-filter: blur(10px);
   padding: 16px 20px;
-  border-bottom: 1px solid #e4e7ed;
+  border-bottom: 1px solid var(--app-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  box-shadow: var(--app-shadow-sm);
   z-index: 10;
+  border-radius: var(--app-radius);
 }
 
 .patient-info {
@@ -1667,12 +1783,12 @@ watch(() => messages.value.length, () => {
   margin: 0 0 4px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #303133;
+  color: var(--app-text);
 }
 
 .patient-detail p {
   margin: 0 0 8px 0;
-  color: #606266;
+  color: var(--app-text-muted);
   font-size: 14px;
 }
 
@@ -1680,9 +1796,10 @@ watch(() => messages.value.length, () => {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
-  background-image: linear-gradient(rgba(240, 242, 245, 0.8), rgba(240, 242, 245, 0.8)), url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj48cGF0aCBmaWxsPSIjZWVlIiBkPSJNMCAwaDIwMHYyMDBIMHoiLz48cGF0aCBkPSJNMTAgMTBoMTgwdjE4MEgxMHoiIGZpbGw9IiNmZmYiLz48L2c+PC9zdmc+');
-  background-repeat: repeat;
-  background-size: 200px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.35));
+  border-radius: var(--app-radius);
+  border: 1px solid var(--app-border);
 }
 
 .message-list {
@@ -1703,11 +1820,11 @@ watch(() => messages.value.length, () => {
 .system-message p {
   display: inline-block;
   padding: 6px 12px;
-  background-color: rgba(0, 0, 0, 0.06);
+  background-color: rgba(15, 23, 42, 0.06);
   border-radius: 16px;
   font-size: 13px;
-  color: #606266;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  color: var(--app-text-muted);
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.04);
 }
 
 .room-status-display {
@@ -1718,7 +1835,7 @@ watch(() => messages.value.length, () => {
 
 .status-description {
   margin-top: 5px;
-  color: #666;
+  color: var(--app-text-muted);
   font-size: 12px;
 }
 
@@ -1756,7 +1873,7 @@ watch(() => messages.value.length, () => {
 .message-info {
   margin-bottom: 4px;
   font-size: 12px;
-  color: #999;
+  color: rgba(15, 23, 42, 0.55);
 }
 
 .message-right .message-info {
@@ -1768,10 +1885,12 @@ watch(() => messages.value.length, () => {
 }
 
 .message-bubble {
-  background: white;
+  background: rgba(255, 255, 255, 0.9);
   padding: 16px 22px; /* 增加内边距 */
   border-radius: 24px 24px 24px 6px; /* 增大圆角 */
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1); /* 增强阴影 */
+  box-shadow: var(--app-shadow-sm); /* 增强阴影 */
+  border: 1px solid var(--app-border);
+  backdrop-filter: blur(10px);
   display: inline-block;
   transition: all 0.2s ease;
   font-size: 16px; /* 增大字体 */
@@ -1780,13 +1899,14 @@ watch(() => messages.value.length, () => {
 }
 
 .message-bubble:hover {
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15); /* 增强悬停阴影 */
+  box-shadow: var(--app-shadow); /* 增强悬停阴影 */
 }
 
 .message-right .message-bubble {
-  background: linear-gradient(135deg, #409eff, #3a8ee6);
+  background: linear-gradient(135deg, var(--brand-600), var(--brand-700));
   color: white;
   border-radius: 24px 24px 6px 24px; /* 增大圆角 */
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .message-text {
@@ -1805,11 +1925,13 @@ watch(() => messages.value.length, () => {
 }
 
 .chat-input {
-  background: white;
-  border-top: 1px solid #e4e7ed;
+  background: var(--app-surface);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--app-border);
   padding: 16px 20px;
-  box-shadow: 0 -2px 12px 0 rgba(0, 0, 0, 0.05);
+  box-shadow: var(--app-shadow-sm);
   z-index: 10;
+  border-radius: var(--app-radius);
 }
 
 .input-toolbar {
@@ -1817,13 +1939,13 @@ watch(() => messages.value.length, () => {
   display: flex;
   gap: 16px;
   padding: 8px 0;
-  border-bottom: 1px dashed #ebeef5;
+  border-bottom: 1px dashed rgba(15, 23, 42, 0.12);
 }
 
 .quick-reply {
   margin-bottom: 12px;
   padding: 10px;
-  background: #f8f9fa;
+  background: rgba(15, 23, 42, 0.03);
   border-radius: 8px;
   box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.05);
 }
@@ -1842,11 +1964,11 @@ watch(() => messages.value.length, () => {
   border-radius: 8px;
   transition: all 0.3s ease;
   resize: none;
-  box-shadow: 0 0 0 1px #dcdfe6;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.16);
 }
 
 .input-area .el-textarea :deep(.el-textarea__inner:focus) {
-  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.3);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
 }
 
 .send-button {
@@ -1856,18 +1978,18 @@ watch(() => messages.value.length, () => {
 }
 
 .medicine-list {
-  border: 1px solid #e4e7ed;
+  border: 1px solid var(--app-border);
   border-radius: 6px;
   padding: 16px;
-  background: #fafafa;
+  background: rgba(255, 255, 255, 0.65);
 }
 
 .medicine-item {
   margin-bottom: 12px;
   padding: 12px;
-  background: white;
+  background: rgba(255, 255, 255, 0.9);
   border-radius: 4px;
-  border: 1px solid #e4e7ed;
+  border: 1px solid var(--app-border);
 }
 
 .medicine-item:last-child {
@@ -1878,6 +2000,19 @@ watch(() => messages.value.length, () => {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.ai-unavailable-pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 60vh;
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  color: var(--app-text);
 }
 /* 添加动画效果 */
 @keyframes fadeIn {
@@ -1905,7 +2040,7 @@ watch(() => messages.value.length, () => {
 /* 添加发送按钮悬停效果 */
 .send-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.18);
 }
 
 /* 添加工具栏按钮悬停效果 */
@@ -1914,7 +2049,7 @@ watch(() => messages.value.length, () => {
 }
 
 .input-toolbar .el-button:hover {
-  color: #409eff;
+  color: var(--brand-600);
   transform: translateY(-2px);
 }
 

@@ -62,12 +62,11 @@ onMounted(() => {
 
 html, body {
   height: 100%;
-  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+  font-family: var(--el-font-family);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-size: 14px;
-  color: #303133;
-  background-color: #f5f7fa;
+  color: var(--el-text-color-primary);
 }
 
 #app, .app-container {
@@ -86,26 +85,6 @@ html, body {
   opacity: 0;
 }
 
-/* 滚动条样式 */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #c0c4cc;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #909399;
-}
-
 /* 全局工具类 */
 .flex-center {
   display: flex;
@@ -117,26 +96,5 @@ html, body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* 覆盖Element Plus的一些默认样式 */
-.el-card {
-  border-radius: 8px;
-  border: none;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
-  transition: all 0.3s;
-}
-
-.el-card:hover {
-  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1);
-}
-
-.el-button {
-  border-radius: 4px;
-}
-
-.el-table {
-  border-radius: 8px;
-  overflow: hidden;
 }
 </style>

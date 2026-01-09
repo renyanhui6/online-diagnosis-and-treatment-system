@@ -11,6 +11,8 @@ import cn.edu.ncu.medical.mapper.RegistrationMapper;
 import cn.edu.ncu.medical.mapper.ScheduleMapper;
 import cn.edu.ncu.medical.result.ResultCodeEnum;
 import cn.edu.ncu.medical.utils.RedisCache;
+import cn.edu.ncu.medical.utils.ScheduleCacheKeys;
+import cn.edu.ncu.medical.utils.ScheduleTimePolicy;
 import cn.edu.ncu.medical.utils.TimeUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -35,6 +37,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.Clock;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -261,7 +264,7 @@ public class AppointmentPaymentRecordServiceImpl extends ServiceImpl<Appointment
 
         //清缓存
         Schedule schedule = scheduleMapper.selectById(scheduleId);
-        String key = String.join(":",schedule.getSubDepartmentId().toString(),schedule.getDepartmentName(),schedule.getScheduleDate().toString());
+        String key = ScheduleCacheKeys.scheduleListKey(schedule.getSubDepartmentId(), schedule.getScheduleDate());
         redisCache.delete(key);
 
         registrationMapper.deleteById(registrationId);
@@ -298,48 +301,11 @@ public class AppointmentPaymentRecordServiceImpl extends ServiceImpl<Appointment
         if(scheduleDate==null){
             throw new AppointmentException(ResultCodeEnum.SCHEDULE_NOT_EXIST);
         }
-    // 使用 Calendar 处理日期
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTime(scheduleDate);
-
-    // 创建当天 8:00 的时间
-        Calendar eightOClockCal = (Calendar) calendar.clone();
-        eightOClockCal.set(Calendar.HOUR_OF_DAY, 8);
-        eightOClockCal.set(Calendar.MINUTE, 0);
-        eightOClockCal.set(Calendar.SECOND, 0);
-        eightOClockCal.set(Calendar.MILLISECOND, 0);
-        Date eightOClock = eightOClockCal.getTime();
-
-    // 创建当天 14:00 的时间
-        Calendar twoPMCal = (Calendar) calendar.clone();
-        twoPMCal.set(Calendar.HOUR_OF_DAY, 14);
-        twoPMCal.set(Calendar.MINUTE, 0);
-        twoPMCal.set(Calendar.SECOND, 0);
-        twoPMCal.set(Calendar.MILLISECOND, 0);
-        Date twoPM = twoPMCal.getTime();
-
-// 获取当前时间
-        Date now = new Date();
-
-// 判断当前时间是否在 8:00 之前
-        boolean isBeforeEight = now.before(eightOClock);
-// 判断当前时间是否在 14:00 之前
-        boolean isBeforeTwoPM = now.before(twoPM);
-        // 先判断排班类型是否合法（避免既不是上午也不是下午的异常情况）
-        boolean isMorning = schedule.getIsMorning() == 1;
-        boolean isAfternoon = schedule.getIsAfternoon() == 1;
-
-        if (!isMorning && !isAfternoon) {
-            // 既不是上午场也不是下午场，排班类型无效
+        if (schedule.getStatus() == null || schedule.getStatus() != 1) {
             throw new AppointmentException(ResultCodeEnum.SCHEDULE_NOT_EXIST);
         }
-
-// 判断预约时间是否符合对应场次的规则
-        boolean isMorningValid = isMorning && isBeforeEight; // 上午场且在8点前：有效
-        boolean isAfternoonValid = isAfternoon && isBeforeTwoPM; // 下午场且在14点前：有效
-
-        if (!isMorningValid && !isAfternoonValid) {
-            // 时间不符合当前排班的规则
+        Clock clock = Clock.systemDefaultZone();
+        if (!ScheduleTimePolicy.canCreateOrder(schedule, clock)) {
             throw new AppointmentException(ResultCodeEnum.SCHEDULE_NOT_EXIST);
         }
 
@@ -394,7 +360,7 @@ public class AppointmentPaymentRecordServiceImpl extends ServiceImpl<Appointment
             //返回值为挂号订单id
 
             //清缓存
-            String key = String.join(":",schedule.getSubDepartmentId().toString(),schedule.getDepartmentName(),TimeUtil.dateToString(schedule.getScheduleDate()));
+            String key = ScheduleCacheKeys.scheduleListKey(schedule.getSubDepartmentId(), schedule.getScheduleDate());
             redisCache.delete(key);
 
             applicationEventPublisher.publishEvent(new OrderCreatedEvent(appointId));
@@ -443,7 +409,7 @@ public class AppointmentPaymentRecordServiceImpl extends ServiceImpl<Appointment
         }
         //清缓存
         Schedule schedule = scheduleMapper.selectById(scheduleId);
-        String key = String.join(":",schedule.getSubDepartmentId().toString(),schedule.getDepartmentName(),schedule.getScheduleDate().toString());
+        String key = ScheduleCacheKeys.scheduleListKey(schedule.getSubDepartmentId(), schedule.getScheduleDate());
         redisCache.delete(key);
 
         registrationMapper.deleteById(registrationId);
@@ -495,7 +461,7 @@ public class AppointmentPaymentRecordServiceImpl extends ServiceImpl<Appointment
         }
         //清缓存
         Schedule schedule = scheduleMapper.selectById(scheduleId);
-        String key = String.join(":",schedule.getSubDepartmentId().toString(),schedule.getDepartmentName(),schedule.getScheduleDate().toString());
+        String key = ScheduleCacheKeys.scheduleListKey(schedule.getSubDepartmentId(), schedule.getScheduleDate());
         redisCache.delete(key);
 
 
