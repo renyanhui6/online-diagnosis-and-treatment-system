@@ -17,6 +17,7 @@ import io.netty.handler.codec.http.websocketx.extensions.compression.WebSocketSe
 import io.netty.handler.timeout.IdleStateHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
@@ -24,7 +25,7 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 独立的 Netty WebSocket 服务（灰度与原 @ServerEndpoint 并存）。
+ * 独立的 Netty WebSocket 服务。
  */
 @Component
 @Slf4j
@@ -36,6 +37,8 @@ public class NettyWebSocketServer implements InitializingBean, DisposableBean {
     private final NettySessionRegistry sessionRegistry;
     private final ChatMessageService chatMessageService;
     private final RoomService roomService;
+    @Value("${app.auth.enabled:true}")
+    private boolean authEnabled;
 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
@@ -65,7 +68,7 @@ public class NettyWebSocketServer implements InitializingBean, DisposableBean {
                                     .addLast(new HttpObjectAggregator(65536))
                                     .addLast(new IdleStateHandler(properties.getIdleSeconds(), properties.getIdleSeconds(), properties.getIdleSeconds(), TimeUnit.SECONDS))
                                     .addLast(new WebSocketServerCompressionHandler())
-                                    .addLast(new NettyHandshakeHandler(properties, redisCache, sessionRegistry))
+                                    .addLast(new NettyHandshakeHandler(properties, redisCache, sessionRegistry, authEnabled))
                                     .addLast(new NettyTextFrameHandler(sessionRegistry, chatMessageService, roomService));
                         }
                     });

@@ -14,6 +14,12 @@ public class MedicalRecordInfo {
 
     // 患者姓名
     private String patientName;
+    // 患者联系电话
+    private String patientPhone;
+    // 患者性别（展示用）
+    private String patientGender;
+    // 患者年龄（展示用）
+    private Integer patientAge;
     // 医生姓名
     private String doctorName;
     // 挂号id

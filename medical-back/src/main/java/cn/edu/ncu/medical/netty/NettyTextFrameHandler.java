@@ -5,7 +5,6 @@ import cn.edu.ncu.medical.entity.Room;
 import cn.edu.ncu.medical.service.ChatMessageService;
 import cn.edu.ncu.medical.service.RoomService;
 import cn.edu.ncu.medical.websocket.ChatController;
-import cn.edu.ncu.medical.websocket.ChatWebSocket;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import io.netty.channel.ChannelHandlerContext;
@@ -80,7 +79,6 @@ public class NettyTextFrameHandler extends SimpleChannelInboundHandler<TextWebSo
         if (resolvedRoomId != null) {
             String resolvedRoomIdText = String.valueOf(resolvedRoomId);
             sessionRegistry.broadcast(resolvedRoomIdText, text);
-            ChatWebSocket.broadcastToChatRoom(resolvedRoomIdText, json);
         }
     }
 
@@ -112,8 +110,6 @@ public class NettyTextFrameHandler extends SimpleChannelInboundHandler<TextWebSo
         payload.put("createTime", chatMessage.getCreateTime());
 
         sessionRegistry.broadcast(roomId, JSON.toJSONString(payload));
-        // 灰度并存：同步广播到旧的 Spring WebSocket 房间，避免两端用户无法互通
-        ChatWebSocket.broadcastToChatRoom(roomId, payload);
     }
 
     private void handleConsultationResponse(JSONObject json, String fallbackRoomId) {
@@ -163,7 +159,6 @@ public class NettyTextFrameHandler extends SimpleChannelInboundHandler<TextWebSo
 
         String roomIdText = String.valueOf(roomId);
         sessionRegistry.broadcast(roomIdText, JSON.toJSONString(statusMessage));
-        ChatWebSocket.broadcastToChatRoom(roomIdText, statusMessage);
     }
 
     private void broadcastStatusMessage(JSONObject json, String fallbackRoomId) {
@@ -173,7 +168,6 @@ public class NettyTextFrameHandler extends SimpleChannelInboundHandler<TextWebSo
         }
         String roomIdText = String.valueOf(roomId);
         sessionRegistry.broadcast(roomIdText, JSON.toJSONString(json));
-        ChatWebSocket.broadcastToChatRoom(roomIdText, json);
     }
 
     private void handlePatientReady(String fallbackRoomId) {
@@ -188,7 +182,6 @@ public class NettyTextFrameHandler extends SimpleChannelInboundHandler<TextWebSo
 
         String roomIdText = String.valueOf(roomId);
         sessionRegistry.broadcast(roomIdText, JSON.toJSONString(notification));
-        ChatWebSocket.broadcastToChatRoom(roomIdText, notification);
     }
 
     private Long resolveRoomId(JSONObject json, String fallbackRoomId) {

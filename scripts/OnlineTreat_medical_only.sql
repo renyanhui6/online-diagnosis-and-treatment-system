@@ -737,11 +737,15 @@ CREATE TABLE `registration`  (
   `schedule_id` int NULL DEFAULT NULL,
   `create_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `registration_status` int NULL DEFAULT NULL,
+  `person_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
+  `request_token` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
   `update_time` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   `is_deleted` int NULL DEFAULT 0,
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `doctor_id`(`doctor_id` ASC) USING BTREE,
   INDEX `patient_id`(`patient_id` ASC) USING BTREE,
+  INDEX `idx_registration_schedule_person`(`schedule_id` ASC, `person_key` ASC) USING BTREE,
+  UNIQUE INDEX `uk_registration_request_token`(`request_token` ASC) USING BTREE,
   CONSTRAINT `registration_ibfk_1` FOREIGN KEY (`doctor_id`) REFERENCES `doctor_detail` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `registration_ibfk_2` FOREIGN KEY (`patient_id`) REFERENCES `patient_attendant` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE = InnoDB AUTO_INCREMENT = 96 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC;
@@ -749,22 +753,46 @@ CREATE TABLE `registration`  (
 -- ----------------------------
 -- Records of registration
 -- ----------------------------
-INSERT INTO `registration` VALUES (1, 191, 6, 582, '2025-08-08 09:01:09', 2, '2025-08-08 05:03:56', 0);
-INSERT INTO `registration` VALUES (2, 152, 3, 600, '2025-08-08 19:33:18', 6, '2025-08-08 11:46:05', 0);
-INSERT INTO `registration` VALUES (3, 161, 5, 567, '2025-08-08 09:51:16', 2, '2025-08-08 04:09:37', 0);
-INSERT INTO `registration` VALUES (4, 189, 7, 583, '2025-08-08 11:18:35', 7, '2025-08-08 01:09:01', 0);
-INSERT INTO `registration` VALUES (5, 188, 3, 553, '2025-08-08 17:48:45', 6, '2025-08-08 20:59:10', 0);
-INSERT INTO `registration` VALUES (6, 143, 3, 591, '2025-08-08 01:00:40', 3, '2025-08-08 00:33:15', 0);
-INSERT INTO `registration` VALUES (7, 182, 4, 583, '2025-08-08 14:51:01', 5, '2025-08-08 21:04:12', 0);
-INSERT INTO `registration` VALUES (8, 162, 1, 562, '2025-08-08 01:23:37', 2, '2025-08-08 18:36:01', 0);
-INSERT INTO `registration` VALUES (9, 168, 5, 582, '2025-08-08 07:31:56', 2, '2025-08-08 05:30:22', 0);
-INSERT INTO `registration` VALUES (10, 183, 6, 574, '2025-08-08 02:55:41', 4, '2025-08-08 18:55:19', 0);
-INSERT INTO `registration` VALUES (90, 132, 1, 502, '2025-08-08 10:23:53', 3, '2025-08-09 18:17:19', 0);
-INSERT INTO `registration` VALUES (91, 132, 2, 502, '2025-08-08 10:33:51', 0, '2025-08-08 10:34:23', 1);
-INSERT INTO `registration` VALUES (92, 132, 2, 502, '2025-08-08 10:34:58', 7, '2025-08-08 10:36:36', 1);
-INSERT INTO `registration` VALUES (93, 133, 3, 504, '2025-08-08 10:37:30', 2, '2025-08-08 10:41:16', 0);
-INSERT INTO `registration` VALUES (94, 131, 2, 605, '2025-08-08 14:13:22', 7, '2025-08-08 14:14:40', 1);
-INSERT INTO `registration` VALUES (95, 146, 1, 611, '2025-08-09 18:14:16', 7, '2025-08-09 18:14:33', 1);
+INSERT INTO `registration` (`id`, `doctor_id`, `patient_id`, `schedule_id`, `create_time`, `registration_status`, `person_key`, `request_token`, `update_time`, `is_deleted`) VALUES (1, 191, 6, 582, '2025-08-08 09:01:09', 2, NULL, NULL, '2025-08-08 05:03:56', 0);
+INSERT INTO `registration` (`id`, `doctor_id`, `patient_id`, `schedule_id`, `create_time`, `registration_status`, `person_key`, `request_token`, `update_time`, `is_deleted`) VALUES (2, 152, 3, 600, '2025-08-08 19:33:18', 6, NULL, NULL, '2025-08-08 11:46:05', 0);
+INSERT INTO `registration` (`id`, `doctor_id`, `patient_id`, `schedule_id`, `create_time`, `registration_status`, `person_key`, `request_token`, `update_time`, `is_deleted`) VALUES (3, 161, 5, 567, '2025-08-08 09:51:16', 2, NULL, NULL, '2025-08-08 04:09:37', 0);
+INSERT INTO `registration` (`id`, `doctor_id`, `patient_id`, `schedule_id`, `create_time`, `registration_status`, `person_key`, `request_token`, `update_time`, `is_deleted`) VALUES (4, 189, 7, 583, '2025-08-08 11:18:35', 7, NULL, NULL, '2025-08-08 01:09:01', 0);
+INSERT INTO `registration` (`id`, `doctor_id`, `patient_id`, `schedule_id`, `create_time`, `registration_status`, `person_key`, `request_token`, `update_time`, `is_deleted`) VALUES (5, 188, 3, 553, '2025-08-08 17:48:45', 6, NULL, NULL, '2025-08-08 20:59:10', 0);
+INSERT INTO `registration` (`id`, `doctor_id`, `patient_id`, `schedule_id`, `create_time`, `registration_status`, `person_key`, `request_token`, `update_time`, `is_deleted`) VALUES (6, 143, 3, 591, '2025-08-08 01:00:40', 3, NULL, NULL, '2025-08-08 00:33:15', 0);
+INSERT INTO `registration` (`id`, `doctor_id`, `patient_id`, `schedule_id`, `create_time`, `registration_status`, `person_key`, `request_token`, `update_time`, `is_deleted`) VALUES (7, 182, 4, 583, '2025-08-08 14:51:01', 5, NULL, NULL, '2025-08-08 21:04:12', 0);
+INSERT INTO `registration` (`id`, `doctor_id`, `patient_id`, `schedule_id`, `create_time`, `registration_status`, `person_key`, `request_token`, `update_time`, `is_deleted`) VALUES (8, 162, 1, 562, '2025-08-08 01:23:37', 2, NULL, NULL, '2025-08-08 18:36:01', 0);
+INSERT INTO `registration` (`id`, `doctor_id`, `patient_id`, `schedule_id`, `create_time`, `registration_status`, `person_key`, `request_token`, `update_time`, `is_deleted`) VALUES (9, 168, 5, 582, '2025-08-08 07:31:56', 2, NULL, NULL, '2025-08-08 05:30:22', 0);
+INSERT INTO `registration` (`id`, `doctor_id`, `patient_id`, `schedule_id`, `create_time`, `registration_status`, `person_key`, `request_token`, `update_time`, `is_deleted`) VALUES (10, 183, 6, 574, '2025-08-08 02:55:41', 4, NULL, NULL, '2025-08-08 18:55:19', 0);
+INSERT INTO `registration` (`id`, `doctor_id`, `patient_id`, `schedule_id`, `create_time`, `registration_status`, `person_key`, `request_token`, `update_time`, `is_deleted`) VALUES (90, 132, 1, 502, '2025-08-08 10:23:53', 3, NULL, NULL, '2025-08-09 18:17:19', 0);
+INSERT INTO `registration` (`id`, `doctor_id`, `patient_id`, `schedule_id`, `create_time`, `registration_status`, `person_key`, `request_token`, `update_time`, `is_deleted`) VALUES (91, 132, 2, 502, '2025-08-08 10:33:51', 0, NULL, NULL, '2025-08-08 10:34:23', 1);
+INSERT INTO `registration` (`id`, `doctor_id`, `patient_id`, `schedule_id`, `create_time`, `registration_status`, `person_key`, `request_token`, `update_time`, `is_deleted`) VALUES (92, 132, 2, 502, '2025-08-08 10:34:58', 7, NULL, NULL, '2025-08-08 10:36:36', 1);
+INSERT INTO `registration` (`id`, `doctor_id`, `patient_id`, `schedule_id`, `create_time`, `registration_status`, `person_key`, `request_token`, `update_time`, `is_deleted`) VALUES (93, 133, 3, 504, '2025-08-08 10:37:30', 2, NULL, NULL, '2025-08-08 10:41:16', 0);
+INSERT INTO `registration` (`id`, `doctor_id`, `patient_id`, `schedule_id`, `create_time`, `registration_status`, `person_key`, `request_token`, `update_time`, `is_deleted`) VALUES (94, 131, 2, 605, '2025-08-08 14:13:22', 7, NULL, NULL, '2025-08-08 14:14:40', 1);
+INSERT INTO `registration` (`id`, `doctor_id`, `patient_id`, `schedule_id`, `create_time`, `registration_status`, `person_key`, `request_token`, `update_time`, `is_deleted`) VALUES (95, 146, 1, 611, '2025-08-09 18:14:16', 7, NULL, NULL, '2025-08-09 18:14:33', 1);
+
+UPDATE `registration` r
+JOIN `patient_attendant` p ON r.`patient_id` = p.`id`
+SET r.`person_key` = CASE
+    WHEN p.`id_card` IS NULL OR TRIM(p.`id_card`) = '' THEN NULL
+    ELSE SHA2(UPPER(TRIM(p.`id_card`)), 256)
+END
+WHERE r.`person_key` IS NULL;
+
+-- ----------------------------
+-- Table structure for registration_person_lock
+-- ----------------------------
+DROP TABLE IF EXISTS `registration_person_lock`;
+CREATE TABLE `registration_person_lock`  (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `schedule_id` bigint NOT NULL,
+  `person_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `request_token` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `registration_id` bigint NULL DEFAULT NULL,
+  `create_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_registration_person_lock`(`schedule_id` ASC, `person_key` ASC) USING BTREE,
+  UNIQUE INDEX `uk_registration_person_request`(`request_token` ASC) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for room
@@ -1021,4 +1049,3 @@ CREATE TABLE `notification_message`  (
 -- ----------------------------
 
 SET FOREIGN_KEY_CHECKS = 1;
-

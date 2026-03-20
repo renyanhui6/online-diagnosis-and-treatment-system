@@ -34,30 +34,10 @@
           </el-menu-item>
         </el-sub-menu>
         
-        <el-menu-item index="/medicine">
-          <el-icon><FirstAidKit /></el-icon>
-          <span>在线购药</span>
-        </el-menu-item>
-        
         <el-menu-item index="/record">
           <el-icon><Document /></el-icon>
           <span>就诊记录</span>
         </el-menu-item>
-        
-        <el-sub-menu index="/payment">
-          <template #title>
-            <el-icon><Wallet /></el-icon>
-            <span>支付记录</span>
-          </template>
-          <el-menu-item index="/payment/appointment">
-            <el-icon><Tickets /></el-icon>
-            <span>挂号支付</span>
-          </el-menu-item>
-          <el-menu-item index="/payment/medicine">
-            <el-icon><ShoppingCart /></el-icon>
-            <span>药品支付</span>
-          </el-menu-item>
-        </el-sub-menu>
         
         <el-sub-menu index="/user">
           <template #title>
@@ -145,16 +125,12 @@ import {
   Calendar,
   Plus,
   List,
-  FirstAidKit,
   Document,
-  Wallet,
   User,
   UserFilled,
   Lock,
   ArrowDown,
   SwitchButton,
-  Tickets,
-  ShoppingCart
 } from '@element-plus/icons-vue'
 
 const route = useRoute()

@@ -12,7 +12,7 @@
       <el-alert
         title="预约说明"
         type="info"
-        description="预约页面仅用于查看预约状态和进行在线问诊。支付、取消、退款等操作请在支付记录页面进行。"
+        description="预约页面用于查看预约状态并进入在线问诊。"
         show-icon
         :closable="false"
         style="margin-bottom: 20px"
@@ -86,13 +86,24 @@
               >
                 进入问诊
               </el-button>
-              <el-button 
-                type="info" 
-                size="small" 
-                @click="viewPaymentRecord(row)"
-              >
-                查看支付记录
-              </el-button>
+              <template v-if="row.registrationStatus === APPOINTMENT_STATUS.WAITING_CONFIRM">
+                <el-button
+                  type="success"
+                  size="small"
+                  @click="handleConsultationResponse(row, 'accept')"
+                  :loading="row.consultationLoading"
+                >
+                  接受问诊
+                </el-button>
+                <el-button
+                  type="danger"
+                  size="small"
+                  @click="handleConsultationResponse(row, 'reject')"
+                  :loading="row.consultationLoading"
+                >
+                  拒绝
+                </el-button>
+              </template>
               <el-button 
                 v-if="canResumeAppointment(row.registrationStatus)"
                 type="primary" 
@@ -137,7 +148,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getUserAppointmentOrders, changeStatusToResumed } from '../../api/appointment'
 import { getAppointmentStatusText, getAppointmentStatusType, APPOINTMENT_STATUS, canResumeAppointment } from '../../utils'
-import { getRoomStatus } from '../../api/chat'
+import { getRoomStatus, respondToConsultation } from '../../api/chat'
 import UserStorage from '../../utils/userStorage'
 
 const router = useRouter()
@@ -202,11 +213,6 @@ const handleSizeChange = (size) => {
   fetchAppointmentList()
 }
 
-// 跳转到支付记录页面
-const viewPaymentRecord = (row) => {
-  router.push('/payment/appointment')
-}
-
 // 进入问诊（问诊中状态）
 const enterConsultation = async (row) => {
   try {
@@ -223,6 +229,40 @@ const enterConsultation = async (row) => {
   } catch (e) {
     console.error('进入问诊失败:', e)
     ElMessage.error('进入问诊失败，请稍后重试')
+  }
+}
+
+const handleConsultationResponse = async (row, response) => {
+  try {
+    row.consultationLoading = true
+
+    const res = await respondToConsultation({
+      registrationId: row.id,
+      response
+    })
+
+    if (res.code !== 200) {
+      ElMessage.error(res.message || '处理问诊请求失败')
+      return
+    }
+
+    if (response === 'accept') {
+      ElMessage.success('已同意开始问诊')
+      await fetchAppointmentList()
+      await enterConsultation({
+        ...row,
+        registrationStatus: APPOINTMENT_STATUS.CONSULTING
+      })
+      return
+    }
+
+    ElMessage.info('已拒绝问诊请求')
+    await fetchAppointmentList()
+  } catch (error) {
+    console.error('处理问诊请求失败:', error)
+    ElMessage.error('处理问诊请求失败，请稍后重试')
+  } finally {
+    row.consultationLoading = false
   }
 }
 
@@ -454,22 +494,6 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
-}
-
-.fee {
-  color: var(--warning);
-  font-weight: 600;
-}
-
-.payment-method {
-  margin: 20px 0;
-}
-
-.payment-method h3 {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--neutral-800);
-  margin: 0 0 10px 0;
 }
 
 .dialog-footer {

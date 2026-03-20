@@ -122,3 +122,6 @@ export const login = (userLogin) => api.post('/front/loginAndOut/login', userLog
 
 // 获取医生个人信息
 export const getDoctorInfo = () => api.get('/front/doctor/doctorDetail/getInfo');
+
+// 修改密码
+export const modifyPassword = (payload) => api.post('/front/loginAndOut/modifyPassword', payload);

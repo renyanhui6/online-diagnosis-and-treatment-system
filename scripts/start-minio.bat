@@ -3,6 +3,8 @@ setlocal enabledelayedexpansion
 
 set NAME=medical-minio
 set IMAGE=minio/minio:latest
+set API_PORT=9000
+set CONSOLE_PORT=9002
 
 set SCRIPT_DIR=%~dp0
 set LOG_DIR=%SCRIPT_DIR%logs
@@ -21,6 +23,18 @@ if not %errorlevel%==0 (
 
 docker ps -a --format "{{.Names}}" | findstr /i /x "%NAME%" >nul
 if %errorlevel%==0 (
+  set NEED_RECREATE=
+  for /f "usebackq delims=" %%P in (`docker port "%NAME%" 2^>nul ^| findstr /i /c:"9001/tcp -> 0.0.0.0:9001" /c:"9001/tcp -> [::]:9001"`) do set NEED_RECREATE=1
+  if defined NEED_RECREATE (
+    call :log "[INFO] Container ""%NAME%"" uses legacy console port 9001, recreating to avoid Netty conflict..."
+    docker rm -f "%NAME%" >> "%LOGFILE%" 2>&1
+    if not %errorlevel%==0 (
+      call :log "[ERROR] Failed to remove legacy container ""%NAME%""."
+      call :maybe_pause %*
+      exit /b 1
+    )
+    goto :create
+  )
   call :log "[INFO] Container ""%NAME%"" exists, starting..."
   docker start "%NAME%" >> "%LOGFILE%" 2>&1
   if not %errorlevel%==0 (
@@ -32,9 +46,10 @@ if %errorlevel%==0 (
   goto :verify
 )
 
+:create
 call :log "[INFO] Creating container ""%NAME%""..."
 docker run -d --name "%NAME%" ^
-  -p 9000:9000 -p 9001:9001 ^
+  -p %API_PORT%:9000 -p %CONSOLE_PORT%:9001 ^
   -e MINIO_ROOT_USER=minioadmin ^
   -e MINIO_ROOT_PASSWORD=minioadmin ^
   -v medical-minio-data:/data ^
@@ -56,8 +71,8 @@ if /i not "%RUNNING%"=="true" (
 )
 
 call :log "[OK] MinIO is running:"
-call :log "     API:     http://localhost:9000"
-call :log "     Console: http://localhost:9001  (minioadmin/minioadmin)"
+call :log "     API:     http://localhost:%API_PORT%"
+call :log "     Console: http://localhost:%CONSOLE_PORT%  (minioadmin/minioadmin)"
 call :maybe_pause %*
 exit /b 0
 

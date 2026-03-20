@@ -69,6 +69,7 @@ public enum ResultCodeEnum {
     USER_NOT_LOGIN(722, "用户未登录"),
     PAYER_ID_INVALID(723, "付款人ID无效"),
     NOT_SUSPENDED(724, "当前状态不是挂起状态，不能设置为已回归"),
+    PATIENT_NOT_VERIFIED(725, "就诊人未完成实名认证"),
 
     MEDICINEORDER_INVALID(800,"药品订单错误"),
     DRUG_QUANTITIES_SHORTAGE(801,"药品库存不足"),

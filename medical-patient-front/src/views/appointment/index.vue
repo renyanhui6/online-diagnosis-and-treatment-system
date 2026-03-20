@@ -13,7 +13,7 @@
       <el-alert
         title="预约说明"
         type="info"
-        description="预约成功后，请在支付记录页面完成支付操作。"
+        description="预约成功后，可在“我的预约”中查看状态并进入问诊。"
         show-icon
         :closable="false"
         style="margin-bottom: 20px"
@@ -315,7 +315,7 @@
 
     <el-dialog
       v-model="aiUnavailableDialogVisible"
-      title="AI 服务不可用：模型 & 价格"
+      title="AI 服务不可用"
       width="720px"
     >
       <pre class="ai-unavailable-pre">{{ aiUnavailableText }}</pre>
@@ -335,7 +335,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Plus, User, Checked, OfficeBuilding } from '@element-plus/icons-vue'
-import { getDepartmentList, getSubDepartmentList, getScheduleList, createAppointment } from '../../api/appointment'
+import { getDepartmentList, getSubDepartmentList, getScheduleList, createAppointment, getAppointmentStatus } from '../../api/appointment'
 import { getCaseList } from '../../api/user'
 import { getTriageSuggestion } from '../../api/ai'
 import { getFutureDates, formatDate } from '../../utils'
@@ -376,32 +376,17 @@ const triageLoading = ref(false)
 const triageDialogVisible = ref(false)
 const aiUnavailableDialogVisible = ref(false)
 const aiUnavailableText = ref('')
+const APPOINTMENT_POLL_INTERVAL = 1000
+const APPOINTMENT_POLL_TIMEOUT = 70000
 
-const AI_UNAVAILABLE_FALLBACK = `AI 服务不可用：模型 & 价格
+const AI_UNAVAILABLE_FALLBACK = `AI 分诊暂时不可用。
 
-模型 & 价格
-下表所列模型价格以“百万 tokens”为单位。Token 是模型用来表示自然语言文本的的最小单位，可以是一个词、一个数字或一个标点符号等。我们将根据模型输入和输出的总 token 数进行计量计费。
+可能原因：
+- 后端未配置 DeepSeek Key
+- AI 服务连接失败
+- 当前请求触发了限流
 
-模型细节
-模型\tdeepseek-chat\tdeepseek-reasoner\tdeepseek-reasoner(1)
-BASE URL\thttps://api.deepseek.com\thttps://api.deepseek.com/\tv3.2_speciale_expires_on_20251215
-模型版本\tDeepSeek-V3.2（非思考模式）\tDeepSeek-V3.2（思考模式）\tDeepSeek-V3.2-Speciale（只支持思考模式）
-上下文长度\t128K
-输出长度\t默认 4K，最大 8K\t默认 32K，最大 64K\t默认 128K，最大 128K
-功能\tJson Output\t支持\t支持\t不支持
-\tTool Calls\t支持\t支持\t不支持
-\t对话前缀续写（Beta）\t支持\t支持\t不支持
-\tFIM 补全（Beta）\t支持\t不支持\t不支持
-价格\t百万tokens输入（缓存命中）\t0.2元
-\t百万tokens输入（缓存未命中）\t2元
-\t百万tokens输出\t3元
-
-(1) 用户可以通过设置 base_url="https://api.deepseek.com/v3.2_speciale_expires_on_20251215" 访问 DeepSeek-V3.2-Speciale 模型。该模型只支持思考模式，支持时间截止至北京时间 2025-12-15 23:59。
-
-扣费规则
-扣减费用 = token 消耗量 × 模型单价，对应的费用将直接从充值余额或赠送余额中进行扣减。当充值余额与赠送余额同时存在时，优先扣减赠送余额。
-
-产品价格可能发生变动，DeepSeek 保留修改价格的权利。请您依据实际用量按需充值，定期查看此页面以获知最新价格信息。`
+你仍然可以手动选择科室并继续挂号。`
 const triageForm = reactive({
   description: ''
 })
@@ -634,51 +619,64 @@ const submitAppointment = async () => {
   submitting.value = true
   
   try {
-    // 调用创建预约订单的接口
     const res = await createAppointment({
-      doctorId: selectedSchedule.value?.doctorId,
       patientId: appointmentForm.patientId,
       scheduleId: appointmentForm.scheduleId
     })
     
-    if (res.code === 200) {
-      // 更新当前选中排班的剩余号源数量
-      if (selectedSchedule.value) {
-        // 增加已预约数量
-        selectedSchedule.value.currentAppointmentCount += 1
-        console.log('更新后的排班信息:', selectedSchedule.value)
+    if (res.code === 200 && res.data?.token) {
+      const status = await pollAppointmentStatus(res.data.token)
+      if (status.status === 'SUCCESS') {
+        localStorage.setItem('lastAppointmentInfo', JSON.stringify({
+          departmentId: appointmentForm.departmentId,
+          subDepartmentId: appointmentForm.subDepartmentId,
+          appointmentDate: appointmentForm.appointmentDate,
+          updatedAt: new Date().getTime()
+        }))
+
+        ElMessage.success(status.message || '预约创建成功')
+
+        appointmentForm.departmentId = ''
+        appointmentForm.subDepartmentId = ''
+        appointmentForm.appointmentDate = ''
+        appointmentForm.scheduleId = ''
+        appointmentForm.patientId = ''
+        currentStep.value = 0
+        schedules.value = []
+        subDepartments.value = []
+
+        router.push('/appointment/list')
+        return
       }
-      
-      // 保存当前选择的日期和科室信息，用于在返回时恢复
-      localStorage.setItem('lastAppointmentInfo', JSON.stringify({
-        departmentId: appointmentForm.departmentId,
-        subDepartmentId: appointmentForm.subDepartmentId,
-        appointmentDate: appointmentForm.appointmentDate,
-        updatedAt: new Date().getTime() // 添加时间戳，用于判断数据是否过期
-      }))
-      
-      ElMessage.success('预约创建成功，请在支付记录中完成支付')
-      
-      // 清空所有选择状态
-      appointmentForm.departmentId = ''
-      appointmentForm.subDepartmentId = ''
-      appointmentForm.appointmentDate = ''
-      appointmentForm.scheduleId = ''
-      appointmentForm.patientId = ''
-      currentStep.value = 0
-      schedules.value = []
-      subDepartments.value = []
-      
-      router.push('/payment/appointment')
+
+      if (appointmentForm.appointmentDate) {
+        await selectDate(appointmentForm.appointmentDate)
+      }
+      ElMessage.error(status.message || '预约失败')
     } else {
       ElMessage.error(res.message || '预约失败')
     }
   } catch (error) {
     console.error('创建预约失败:', error)
-    ElMessage.error('预约失败，请稍后重试')
+    ElMessage.error(error.message || '预约失败，请稍后重试')
   } finally {
     submitting.value = false
   }
+}
+
+const pollAppointmentStatus = async (token) => {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < APPOINTMENT_POLL_TIMEOUT) {
+    const statusResp = await getAppointmentStatus(token)
+    if (statusResp.code === 200 && statusResp.data) {
+      const status = statusResp.data.status
+      if (status === 'SUCCESS' || status === 'FAILED') {
+        return statusResp.data
+      }
+    }
+    await new Promise(resolve => window.setTimeout(resolve, APPOINTMENT_POLL_INTERVAL))
+  }
+  throw new Error('预约处理超时，请稍后到“我的预约”查看结果')
 }
 
 

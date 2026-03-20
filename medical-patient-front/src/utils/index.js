@@ -131,7 +131,8 @@ export const APPOINTMENT_STATUS = {
   COMPLETED: 4,          // 已完成
   SUSPENDED: 5,          // 暂时挂起
   RESUMED: 6,            // 已回归
-  WAITING_CONFIRM: 7     // 等待患者确认
+  WAITING_CONFIRM: 7,    // 等待患者确认
+  INVALID: 8             // 失效
 }
 
 // 获取预约状态文本
@@ -144,7 +145,8 @@ export function getAppointmentStatusText(status) {
     [APPOINTMENT_STATUS.COMPLETED]: '已完成',
     [APPOINTMENT_STATUS.SUSPENDED]: '暂时挂起',
     [APPOINTMENT_STATUS.RESUMED]: '已回归',
-    [APPOINTMENT_STATUS.WAITING_CONFIRM]: '等待患者确认'
+    [APPOINTMENT_STATUS.WAITING_CONFIRM]: '等待患者确认',
+    [APPOINTMENT_STATUS.INVALID]: '失效'
   }
   return statusMap[status] || '未知状态'
 }
@@ -159,7 +161,8 @@ export function getAppointmentStatusType(status) {
     [APPOINTMENT_STATUS.COMPLETED]: 'success',
     [APPOINTMENT_STATUS.SUSPENDED]: 'danger',
     [APPOINTMENT_STATUS.RESUMED]: 'info',
-    [APPOINTMENT_STATUS.WAITING_CONFIRM]: 'warning'
+    [APPOINTMENT_STATUS.WAITING_CONFIRM]: 'warning',
+    [APPOINTMENT_STATUS.INVALID]: 'info'
   }
   return typeMap[status] || 'info'
 }
@@ -177,26 +180,6 @@ export function canStartConsultation(status) {
 // 检查预约是否等待患者确认
 export function isWaitingPatientConfirm(status) {
   return status === APPOINTMENT_STATUS.WAITING_CONFIRM
-}
-
-// 获取支付状态文本
-export function getPaymentStatusText(status) {
-  const statusMap = {
-    0: '待支付',
-    1: '已支付',
-    2: '已退款'
-  }
-  return statusMap[status] || '未知状态'
-}
-
-// 获取支付方式文本
-export function getPaymentMethodText(method) {
-  const methodMap = {
-    1: '微信支付',
-    2: '支付宝',
-    3: '银行卡'
-  }
-  return methodMap[method] || '未知方式'
 }
 
 // 获取验证码

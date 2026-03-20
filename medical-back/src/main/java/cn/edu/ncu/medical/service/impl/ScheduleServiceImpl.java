@@ -8,8 +8,6 @@ import cn.edu.ncu.medical.utils.ScheduleCacheKeys;
 import cn.edu.ncu.medical.utils.ScheduleTimePolicy;
 import cn.edu.ncu.medical.utils.TimeUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import cn.edu.ncu.medical.entity.Schedule;
 import cn.edu.ncu.medical.service.ScheduleService;
@@ -17,10 +15,8 @@ import cn.edu.ncu.medical.mapper.ScheduleMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.text.SimpleDateFormat;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.temporal.TemporalAdjusters;
+import java.time.ZoneId;
 import java.time.Clock;
 import java.util.Date;
 import java.util.List;
@@ -39,8 +35,6 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule>
 	private RedisCache redisCache;
 	@Autowired
 	private DoctorDetailService doctorDetailService;
-	@Autowired
-	private ScheduleMapper scheduleMapper;
 
 	@Override
 	public List<ScheduleVo> findList(Long subDepartmentId, Date scheduleDate) throws Exception {
@@ -76,7 +70,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule>
 			scheduleVo.setDepartmentName(s.getDepartmentName());
 			scheduleVo.setDoctorId(s.getDoctorId());
 			scheduleVo.setDoctorName(s.getDoctorName());
-			scheduleVo.setScheduleDate(s.getScheduleDate());
+			ZoneId zoneId = clock.getZone();
+			LocalDate scheduleLocalDate = ScheduleTimePolicy.toLocalDate(s.getScheduleDate(), zoneId);
+			scheduleVo.setScheduleDate(Date.from(scheduleLocalDate.atStartOfDay(zoneId).toInstant()));
 			DoctorDetail doctorDetail = doctorDetailService.getOne(new LambdaQueryWrapper<DoctorDetail>().eq(DoctorDetail::getId, s.getDoctorId()));
 			if (doctorDetail != null) {
 				scheduleVo.setPrice(doctorDetail.getPrice());
@@ -92,14 +88,5 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule>
 		//将查询结果放入redis
 		redisCache.setObject(key, listVo).setExpire(key,5, TimeUnit.MINUTES);
 		return listVo;
-	}
-
-	@Override
-	public List<Schedule> getScheduleListByDoctorId(Long doctorId) {
-
-		LambdaQueryWrapper<Schedule> wrapper = new LambdaQueryWrapper<>();
-		wrapper.eq(Schedule::getDoctorId, doctorId);
-		List<Schedule> scheduleList = scheduleMapper.selectList(wrapper);
-		return scheduleList;
 	}
 }

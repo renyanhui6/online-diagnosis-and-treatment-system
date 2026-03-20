@@ -27,11 +27,13 @@ public class NettyHandshakeHandler extends SimpleChannelInboundHandler<FullHttpR
     private final NettyServerProperties properties;
     private final RedisCache redisCache;
     private final NettySessionRegistry sessionRegistry;
+    private final boolean authEnabled;
 
-    public NettyHandshakeHandler(NettyServerProperties properties, RedisCache redisCache, NettySessionRegistry sessionRegistry) {
+    public NettyHandshakeHandler(NettyServerProperties properties, RedisCache redisCache, NettySessionRegistry sessionRegistry, boolean authEnabled) {
         this.properties = properties;
         this.redisCache = redisCache;
         this.sessionRegistry = sessionRegistry;
+        this.authEnabled = authEnabled;
     }
 
     @Override
@@ -61,29 +63,49 @@ public class NettyHandshakeHandler extends SimpleChannelInboundHandler<FullHttpR
                 .filter(e -> !e.getValue().isEmpty())
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().get(0)));
         String token = params.getOrDefault("token", "");
-        if (token.isEmpty()) {
-            sendHttpResponse(ctx, request, HttpResponseStatus.UNAUTHORIZED, "token missing");
-            return;
+        Long userId = null;
+        String username = null;
+
+        if (authEnabled) {
+            if (token.isEmpty()) {
+                sendHttpResponse(ctx, request, HttpResponseStatus.UNAUTHORIZED, "token missing");
+                return;
+            }
+            Claims claims;
+            try {
+                claims = JwtUtil.parseToken(token);
+            } catch (Exception e) {
+                sendHttpResponse(ctx, request, HttpResponseStatus.UNAUTHORIZED, "token invalid");
+                return;
+            }
+            userId = claims.get("userId", Long.class);
+            username = claims.get("username", String.class);
+            if (userId == null || username == null) {
+                sendHttpResponse(ctx, request, HttpResponseStatus.UNAUTHORIZED, "token invalid");
+                return;
+            }
+
+            String redisToken = redisCache.getString(RedisConstant.LOGIN_TOKEN_PREFIX + userId);
+            if (redisToken == null || !redisToken.equals(token)) {
+                sendHttpResponse(ctx, request, HttpResponseStatus.UNAUTHORIZED, "token expired");
+                return;
+            }
+        } else if (!token.isEmpty()) {
+            try {
+                Claims claims = JwtUtil.parseToken(token);
+                userId = claims.get("userId", Long.class);
+                username = claims.get("username", String.class);
+            } catch (Exception ignored) {
+                userId = null;
+                username = null;
+            }
         }
 
-        Claims claims;
-        try {
-            claims = JwtUtil.parseToken(token);
-        } catch (Exception e) {
-            sendHttpResponse(ctx, request, HttpResponseStatus.UNAUTHORIZED, "token invalid");
-            return;
+        if (userId == null) {
+            userId = parseUserIdFromRoom(roomId);
         }
-        Long userId = claims.get("userId", Long.class);
-        String username = claims.get("username", String.class);
-        if (userId == null || username == null) {
-            sendHttpResponse(ctx, request, HttpResponseStatus.UNAUTHORIZED, "token invalid");
-            return;
-        }
-
-        String redisToken = redisCache.getString(RedisConstant.LOGIN_TOKEN_PREFIX + userId);
-        if (redisToken == null || !redisToken.equals(token)) {
-            sendHttpResponse(ctx, request, HttpResponseStatus.UNAUTHORIZED, "token expired");
-            return;
+        if (username == null || username.isBlank()) {
+            username = "dev";
         }
 
         Channel channel = ctx.channel();
@@ -91,6 +113,10 @@ public class NettyHandshakeHandler extends SimpleChannelInboundHandler<FullHttpR
         channel.attr(NettySessionRegistry.ATTR_USERNAME).set(username);
         channel.attr(NettySessionRegistry.ATTR_ROOM).set(roomId);
         boolean isLongConnection = roomId.startsWith("patient_") || roomId.startsWith("doctor_");
+        if (isLongConnection && userId == null) {
+            sendHttpResponse(ctx, request, HttpResponseStatus.BAD_REQUEST, "userId missing");
+            return;
+        }
         channel.attr(NettySessionRegistry.ATTR_LONG_CONN).set(isLongConnection);
 
         sessionRegistry.addRoomChannel(roomId, channel);
@@ -126,6 +152,30 @@ public class NettyHandshakeHandler extends SimpleChannelInboundHandler<FullHttpR
                 Unpooled.copiedBuffer(msg, CharsetUtil.UTF_8));
         response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=UTF-8");
         ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+    }
+
+    private Long parseUserIdFromRoom(String roomId) {
+        if (roomId == null) {
+            return null;
+        }
+        if (roomId.startsWith("patient_")) {
+            return safeParseLong(roomId.substring(8));
+        }
+        if (roomId.startsWith("doctor_")) {
+            return safeParseLong(roomId.substring(7));
+        }
+        return null;
+    }
+
+    private Long safeParseLong(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.valueOf(value);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private String getWebSocketLocation(FullHttpRequest req) {

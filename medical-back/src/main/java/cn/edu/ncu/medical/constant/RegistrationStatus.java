@@ -8,7 +8,8 @@ public enum RegistrationStatus {
     COMPLETED(4, "已完成"),
     SUSPENDED(5, "患者未及时响应，暂时挂起，等待后续处理"),
     RESUMED(6, "已回归"),
-    INVALID(7, "失效");
+    WAITING_CONFIRM(7, "等待患者确认"),
+    INVALID(8, "失效");
 
     private final int code;
     private final String description;

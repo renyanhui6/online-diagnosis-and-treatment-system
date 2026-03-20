@@ -1,60 +1,5 @@
 import api from './index';
 
-// 获取预约列表
-export function getAppointments(params) {
-  return api.get('/doctor/appointments', { params });
-}
-
-// 更新预约状态
-export function updateAppointmentStatus(id, status, remark) {
-  return api.put(`/doctor/appointments/${id}`, { status, remark });
-}
-
-// 获取问诊列表
-export function getConsultations(params) {
-  return api.get('/doctor/consultations', { params });
-}
-
-// 获取问诊详情
-export function getConsultationDetail(id) {
-  return api.get(`/doctor/consultations/${id}`);
-}
-
-// 发送问诊消息
-export function sendConsultationMessage(id, message) {
-  return api.post(`/doctor/consultations/${id}/messages`, message);
-}
-
-// 提交诊断结果
-export function submitDiagnosis(id, diagnosis) {
-  return api.post(`/doctor/consultations/${id}/diagnosis`, diagnosis);
-}
-
-// 创建处方
-export function createPrescription(data) {
-  return api.post('/doctor/prescriptions', data);
-}
-
-// 获取处方列表
-export function getPrescriptions(params) {
-  return api.get('/doctor/prescriptions', { params });
-}
-
-// 获取排班信息
-export function getSchedule(params) {
-  return api.get('/doctor/schedule', { params });
-}
-
-// 获取个人工作统计
-export function getStatistics(params) {
-  return api.get('/doctor/statistics', { params });
-}
-
-// 获取药品列表
-export function getMedicines(params) {
-  return api.get('/medicines', { params });
-}
-
 // 获取问诊记录列表
 export function getRegistrationList() {
   return api.post('/front/doctor/registration/getRegistrationList');
@@ -82,11 +27,6 @@ export function getMedicalRecordList(params) {
 // 获取处方信息
 export function getPrescriptionInfoByMedicalRecordId(medicalRecordId) {
   return api.get(`/front/doctor/medicalRecord/getPrescriptionInfoByMedicalRecordId?medicalRecordId=${medicalRecordId}`);
-}
-
-// 获取排班列表
-export function getScheduleList() {
-  return api.get('/front/doctor/schedule/getScheduleList');
 }
 
 // 添加就诊记录

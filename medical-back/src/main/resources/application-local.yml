@@ -10,11 +10,11 @@ spring:
   # 本地启动使用 MySQL（用于跑完整业务数据与排班/挂号流程）
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://47.122.118.231:3306/OnlineTreat?serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://localhost:3306/onlinetreat?serverTimezone=Asia/Shanghai
     username: root
-    password: Qwer_1234
+    password: 123456
 
-  # 本地若没有 Redis/RabbitMQ：保持配置，但关闭监听/自动声明，避免启动阶段阻塞
+  # 本地若没有 Redis：保持配置，但关闭监听，避免启动阶段阻塞
   data:
     redis:
       host: localhost
@@ -22,33 +22,27 @@ spring:
       timeout: 20000
       username:
       password:
-
   rabbitmq:
     host: localhost
     port: 5672
     username: guest
     password: guest
-    dynamic: false
-    listener:
-      simple:
-        auto-startup: false
-      direct:
-        auto-startup: false
 
 app:
   auth:
     enabled: false
-    dev-user-id: 1
-    dev-username: dev
+    dev-user-id: 3
+    dev-username: user1
+    dev-token-enabled: true
   redis:
     listener-enabled: false
     fallback-enabled: true
-  rabbit:
-    enabled: false
   schedule:
     enabled: true
   registration:
     reconcile-enabled: true
+    reservation:
+      enabled: true
 
 ai:
   deepseek:

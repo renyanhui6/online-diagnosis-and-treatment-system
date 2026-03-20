@@ -28,7 +28,7 @@ if not %errorlevel%==0 exit /b 1
 call :log "[OK] All services look running."
 call :log "     Redis:    localhost:6379"
 call :log "     RabbitMQ: localhost:5672  UI http://localhost:15672"
-call :log "     MinIO:    http://localhost:9000  Console http://localhost:9001"
+call :log "     MinIO:    http://localhost:9000  Console http://localhost:9002"
 call :maybe_pause %*
 exit /b 0
 

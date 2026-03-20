@@ -5,7 +5,7 @@
 ## 最新进度（已更新到当前仓库实现）
 - AI：已接入 DeepSeek（需配置 `DEEPSEEK_API_KEY`），并提供自检接口 `GET /treat/ai/status`
 - 上传：已改为本地 MinIO（S3 兼容），默认 `http://localhost:9000`，bucket `medical`
-- local 模式：MySQL 数据库 + 默认关闭鉴权并注入 dev 登录态；排班生成/挂号状态推进为“补偿式”；RabbitMQ 监听默认关闭；Redis 未启动时常用操作会走内存兜底（便于联调）
+- local 模式：使用本地 MySQL 数据库；默认关闭严格鉴权，但会优先按请求中的 dev token 识别当前用户，无 token 时回退到 `application-local.yml` 中的 dev 用户；排班生成/挂号状态推进为“补偿式”；挂号创建已切换为 `Redis 预占 + RabbitMQ 异步落库`，因此 **Redis 和 RabbitMQ 都必须启动**
 - 排班/挂号：排班生成与挂号状态推进改为“补偿式”，不会因为错过某个定时点就永久卡死
 - 一键脚本（Windows + Docker）：`scripts/start-redis.bat`、`scripts/start-rabbitmq.bat`、`scripts/start-minio.bat`
 
@@ -18,7 +18,7 @@
 .\scripts\start-redis.bat
 .\scripts\start-rabbitmq.bat
 
-# 1) 后端（local：可不依赖 MySQL/Redis/RabbitMQ；AI 需要 DeepSeek Key）
+# 1) 后端（local：需要 MySQL + Redis + RabbitMQ；AI 需要 DeepSeek Key）
 cd medical-back
 $env:SPRING_PROFILES_ACTIVE="local"
 # 如果你已配置到系统环境变量，这行可以不写
@@ -27,21 +27,21 @@ $env:DEEPSEEK_API_KEY="你的apikey"
 
 # 2) 患者端（另开一个终端）
 cd medical-patient-front
-npm i
+npm ci
 npm run dev
 
 # 3) 医生/管理员端（另开一个终端）
 cd medical-front-doctor/back-vue-master
-npm i
+npm ci
 npm run dev
 ```
 
 ### macOS/Linux（后端 + 两套前端）
 ```bash
 # 0) 依赖服务（Docker 方式，至少 MinIO 用于上传）
-# docker run -d --name medical-minio -p 9000:9000 -p 9001:9001 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin -v medical-minio-data:/data minio/minio server /data --console-address ":9001"
+# docker run -d --name medical-minio -p 9000:9000 -p 9002:9001 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin -v medical-minio-data:/data minio/minio server /data --console-address ":9001"
 
-# 1) 后端（local）
+# 1) 后端（local：仍需要 MySQL）
 cd medical-back
 export SPRING_PROFILES_ACTIVE=local
 # 如果你已配置到系统环境变量，这行可以不写
@@ -50,12 +50,12 @@ export DEEPSEEK_API_KEY='你的apikey'
 
 # 2) 患者端（另开一个终端）
 cd medical-patient-front
-npm i
+npm ci
 npm run dev
 
 # 3) 医生/管理员端（另开一个终端）
 cd medical-front-doctor/back-vue-master
-npm i
+npm ci
 npm run dev
 ```
 
@@ -65,11 +65,11 @@ npm run dev
 - 医生/管理员前端（Vue3 + Element Plus）：`medical-front-doctor/back-vue-master`
 
 ## 完整业务需要的依赖服务（Redis/RabbitMQ/MySQL）
-如果你要把“登录验证码、token 刷新、支付/订单延迟处理、消息队列”等流程完整跑通，建议你本机启动：
+如果你要把当前仓库里的“登录验证码、token 刷新、挂号预占、异步落库、消息队列”等流程完整跑通，本机必须启动：
 - Redis（6379）
 - RabbitMQ（5672/15672）
 - MySQL（3306，且需要导入项目所需表结构/数据）
-- MinIO（文件上传对象存储，9000/9001；如你要用“上传图片/科室图片/聊天图片”）
+- MinIO（文件上传对象存储，API 9000 / 控制台 9002；如你要用“上传图片/科室图片/聊天图片”）
 
 ## RabbitMQ 常见问题：启动后日志“无限循环刷屏”
 如果你启动 RabbitMQ 后，后端日志反复刷类似异常：
@@ -83,7 +83,7 @@ npm run dev
 
 1) 打开管理台：`http://localhost:15672`（默认账号密码 `guest/guest`）  
 2) 进入 `Queues`  
-3) 找到并 Purge：`order.appointment.create.queue`（以及你不需要的其他队列）
+3) 找到并 Purge：`appointment.registration.create.queue`（以及你不需要的其他队列）
 
 ### 用 Docker Desktop 启动（推荐）
 Windows PowerShell：
@@ -94,8 +94,8 @@ docker run -d --name medical-redis -p 6379:6379 redis:7-alpine
 # RabbitMQ（带管理台 http://localhost:15672，默认 guest/guest）
 docker run -d --name medical-rabbit -p 5672:5672 -p 15672:15672 rabbitmq:3-management
 
-# MinIO（API:9000, 控制台:9001，默认 minioadmin/minioadmin）
-docker run -d --name medical-minio -p 9000:9000 -p 9001:9001 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin -v medical-minio-data:/data minio/minio server /data --console-address ":9001"
+# MinIO（API:9000, 控制台:9002，默认 minioadmin/minioadmin；避免占用 Netty 的 9001）
+docker run -d --name medical-minio -p 9000:9000 -p 9002:9001 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin -v medical-minio-data:/data minio/minio server /data --console-address ":9001"
 ```
 
 也可以直接双击运行（Windows）：
@@ -108,7 +108,7 @@ docker run -d --name medical-minio -p 9000:9000 -p 9001:9001 -e MINIO_ROOT_USER=
 - 以上 bat 执行日志会写到 `scripts/logs/*.log`
 - 如果你不想脚本执行完 `pause`，可以在命令行中运行：`scripts\\start-minio.bat --no-pause`
 
-> 说明：`local` profile 允许你不启动 Redis/RabbitMQ 也能“跑起来联调”，但这会牺牲一部分业务能力；要完整业务就需要把依赖服务也启动并配置到后端。
+> 说明：当前 `local` profile 仍可关闭严格鉴权做本地联调，但**挂号链路不再支持脱离 Redis/RabbitMQ 运行**。
 
 ## 1. 环境准备
 
@@ -120,15 +120,15 @@ docker run -d --name medical-minio -p 9000:9000 -p 9001:9001 -e MINIO_ROOT_USER=
 - Node.js：建议 `18 LTS` 或 `20 LTS`
 - npm：随 Node 自带（也可用 pnpm/yarn，但本项目以 npm 为例）
 
-### 1.3 完整功能（可选）
-如果你要把“挂号/支付/队列/Redis 过期事件”等完整跑起来，还需要：
+### 1.3 完整功能（必需）
+如果你要把当前“挂号/队列/Redis 预占/超时回收”等完整跑起来，还需要：
 - MySQL 8+
 - Redis
 - RabbitMQ
 
-> 如果你只是想先“能启动 + 页面能打开 + 接口能通”，可以先按下面的“最小可启动（local profile）”跑。
+> 如果你只是先验证页面和非挂号接口，仍然可以先按下面的 `local profile` 跑；但要验证挂号创建，Redis 和 RabbitMQ 必须可用。
 
-## 2. 后端启动（最小可启动：local profile）
+## 2. 后端启动（local profile）
 
 ### 2.1 进入后端目录
 ```bash
@@ -211,15 +211,23 @@ Linux/macOS：
 - 访问：`http://localhost:8080/treat`
 - AI 接口：`POST /treat/ai/patient/triage`、`POST /treat/ai/doctor/assist`
 
-> local profile 默认关闭鉴权并注入 dev 登录态，用于“能启动/能联调”。local profile 当前使用 MySQL（见 `medical-back/src/main/resources/application-local.yml`）；请确保你配置的 MySQL 可用并已导入表结构/数据。
-> local profile 下你可以不启动 Redis/RabbitMQ：项目会对常用 Redis 操作做内存兜底（用于验证码/临时 token 等），RabbitMQ 的监听与声明默认关闭；并且 local 配置会显式清空 `spring.data.redis.username/password`，避免本机 Redis 无密码时出现 AUTH 报错。
+> local profile 当前使用 MySQL（见 `medical-back/src/main/resources/application-local.yml`）；请确保你配置的 MySQL 可用并已导入表结构/数据。
+> 如果你的数据库是旧版本表结构，先执行：`scripts/20260312_registration_person_key.sql`
+> 当前挂号创建依赖真实 Redis 和 RabbitMQ；Redis 内存兜底不覆盖这条链路。
 > 另外，local profile 已开启排班补齐与挂号状态对账（`app.schedule.enabled=true`、`app.registration.reconcile-enabled=true`）；如果你只想“最小启动”而不跑这些后台补偿逻辑，可以在 local 配置里把它们关掉。
+> local profile 下前端可直接走 `GET /front/loginAndOut/devToken` 获取本地 JWT。患者端建议使用 `type=1`；医生端与管理员端建议使用 `type=2`。当前种子数据没有可用的 `type=3` 管理员账号，因此管理员前端本地联调默认复用医生账号上下文。
+
+### 2.4.1 本地登录建议
+- 患者端：启动后在登录页使用“本地直连”，会取第一个启用的患者账号。
+- 医生端：启动后在登录页使用“本地直连”，会取第一个启用的医生账号。
+- 管理端：启动后在登录页使用“本地直连”，当前会复用第一个启用的医生账号，仅用于本地功能联调。
+- 如果前端目录已有损坏或过期的 `node_modules`，优先执行 `npm ci` 再启动，不要继续沿用旧依赖树。
 
 ### 2.5 MinIO（本地上传）
 local profile 默认 MinIO 配置为：
 - `endpoint=http://localhost:9000`
 - `bucket=medical`
-- 控制台：`http://localhost:9001`（默认 `minioadmin/minioadmin`）
+- 控制台：`http://localhost:9002`（默认 `minioadmin/minioadmin`，避免占用 Netty 的 `9001`）
 
 建议先运行：`scripts/start-minio.bat`，或用 Docker 命令启动 MinIO（见上文）。
 
@@ -230,7 +238,7 @@ MinIO 环境变量（可选覆盖）：
 - `MINIO_BUCKET`（默认 `medical`）
 - `MINIO_PUBLIC_URL_PREFIX`（默认 `http://localhost:9000/medical`）
 
-#### 2.4.1 AI 配置自检（推荐先做）
+#### 2.5.1 AI 配置自检（推荐先做）
 如果你已经配置了 `DEEPSEEK_API_KEY` 但接口仍返回 `code=9001`，先自检后端进程是否真的读到了环境变量：
 ```bash
 curl "http://localhost:8080/treat/ai/status"
@@ -247,6 +255,17 @@ curl "http://localhost:8080/treat/ai/status"
 - 也可以只在当前窗口临时设置（立即生效）：
   - PowerShell：`$env:DEEPSEEK_API_KEY="你的apikey"` 后再启动后端
   - CMD：`set DEEPSEEK_API_KEY=你的apikey` 后再启动后端
+
+#### 2.5.2 AI 治理参数（可选）
+后端新增 AI 请求治理（截断/脱敏/限流/审计日志），配置项在 `application.yml`：
+- `ai.guard.mask-enabled`：是否开启脱敏
+- `ai.guard.audit-enabled`：是否开启审计日志
+- `ai.guard.rate-limit-enabled`：是否开启限流
+- `ai.guard.rate-limit-window-seconds`：限流窗口（秒）
+- `ai.guard.rate-limit-max-requests`：窗口内最大请求数
+- `ai.guard.max-*-chars` 与 `ai.guard.max-symptom-count`：截断阈值
+
+触发限流时会返回 `code=9002`。
 
 ## 3. 后端启动（完整模式：连接 MySQL/Redis/RabbitMQ）
 
@@ -302,9 +321,20 @@ npm run dev
 - 该前端通过 Vite 代理把 `/api/*` 转发到 `http://localhost:8080/treat`（见 `medical-front-doctor/back-vue-master/vite.config.js`）。
 
 ## 6. WebSocket（可选）
-- 默认仍走旧 WS：`/treat/common/ws/chat`
-- 如需切换 Netty WS：`ws://localhost:9001/netty/ws/chat`
+- 默认走 Netty WS：`ws://localhost:9001/netty/ws/chat/{roomId}`
 
 前端可通过环境变量覆盖（可选）：
 - `VITE_WS_BASE=localhost:9001`
 - `VITE_WS_PATH=/netty/ws/chat`
+
+后端开关：
+- `netty.ws.enabled=true/false`（是否启用 Netty WS 服务）
+- `netty.ws.patient-response-timeout-minutes=3`（患者响应超时分钟数）
+
+验证清单（端到端）：
+- 医生发起问诊 -> 患者弹窗 -> 接受 -> 正常聊天收发。
+- 患者不响应等待超时（默认 3 分钟）-> 医生收到 `patient_timeout` 通知。
+- 医生结束问诊 -> 患者端收到结束与断开提示。
+
+压测建议：
+- 使用 `k6`/`wrk`/`websocat` 等工具对 WS 建连数、广播延迟、断线重连进行测试。

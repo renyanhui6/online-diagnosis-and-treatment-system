@@ -1,19 +1,27 @@
 package cn.edu.ncu.medical.websocket;
 
 import cn.edu.ncu.medical.config.UploadConfig;
+import cn.edu.ncu.medical.constant.RegistrationStatus;
 import cn.edu.ncu.medical.entity.ChatMessage;
+import cn.edu.ncu.medical.entity.DoctorDetail;
 import cn.edu.ncu.medical.entity.PatientAttendant;
+import cn.edu.ncu.medical.entity.Registration;
 import cn.edu.ncu.medical.entity.Room;
-import cn.edu.ncu.medical.exception.MyRuntimeException;
+import cn.edu.ncu.medical.entity.SubDepartment;
+import cn.edu.ncu.medical.inteceptor.login.LoginUserHolder;
+import cn.edu.ncu.medical.netty.NettyConsultationTimeoutScheduler;
 import cn.edu.ncu.medical.netty.NettySessionRegistry;
 import cn.edu.ncu.medical.result.Result;
-import cn.edu.ncu.medical.result.ResultCodeEnum;
 import cn.edu.ncu.medical.service.ChatMessageService;
+import cn.edu.ncu.medical.service.DoctorDetailService;
 import cn.edu.ncu.medical.service.PatientAttendantService;
+import cn.edu.ncu.medical.service.RegistrationService;
 import cn.edu.ncu.medical.service.RoomService;
+import cn.edu.ncu.medical.service.SubDepartmentService;
 import cn.edu.ncu.medical.utils.UploadUtil;
 import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.*;
@@ -22,6 +30,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.*;
 
+@Slf4j
 @RestController
 @RequestMapping("/chat")
 public class ChatController {
@@ -33,13 +42,21 @@ public class ChatController {
     private static RoomService roomService;
     private static PatientAttendantService patientAttendantService;
     private static NettySessionRegistry nettySessionRegistry;
+    private static NettyConsultationTimeoutScheduler consultationTimeoutScheduler;
+    private static RegistrationService registrationService;
+    private static DoctorDetailService doctorDetailService;
+    private static SubDepartmentService subDepartmentService;
     @Autowired
-    public ChatController(ChatMessageService chatMessageService, UploadConfig uploadConfig, RoomService roomService, PatientAttendantService patientAttendantService, NettySessionRegistry nettySessionRegistry) {
+    public ChatController(ChatMessageService chatMessageService, UploadConfig uploadConfig, RoomService roomService, PatientAttendantService patientAttendantService, NettySessionRegistry nettySessionRegistry, NettyConsultationTimeoutScheduler consultationTimeoutScheduler, RegistrationService registrationService, DoctorDetailService doctorDetailService, SubDepartmentService subDepartmentService) {
         ChatController.chatMessageService = chatMessageService;
         ChatController.uploadConfig = uploadConfig;
         ChatController.roomService = roomService;
         ChatController.patientAttendantService = patientAttendantService;
         ChatController.nettySessionRegistry = nettySessionRegistry;
+        ChatController.consultationTimeoutScheduler = consultationTimeoutScheduler;
+        ChatController.registrationService = registrationService;
+        ChatController.doctorDetailService = doctorDetailService;
+        ChatController.subDepartmentService = subDepartmentService;
     }
     /**
      * 医生发起问诊
@@ -48,17 +65,25 @@ public class ChatController {
     public Result<Map<String, Object>> initiateConsultation(@RequestBody Map<String, Object> request) {
         try {
             Long registrationId = Long.valueOf(request.get("registrationId").toString());
-            Long doctorId = Long.valueOf(request.get("doctorId").toString());
-            Long patientId = Long.valueOf(request.get("patientId").toString());
-            String patientName = (String) request.get("patientName");
-            LambdaQueryWrapper<PatientAttendant> patientAttendantLambdaQueryWrapper = new LambdaQueryWrapper<>();
-            patientAttendantLambdaQueryWrapper.eq(PatientAttendant::getId, patientId);
-            List<PatientAttendant> list = patientAttendantService.list(patientAttendantLambdaQueryWrapper);
-            if (list.size() == 0) {
+            Registration registration = registrationService.getById(registrationId);
+            if (registration == null) {
+                return Result.fail(404, "挂号记录不存在");
+            }
+
+            Long loginUserId = LoginUserHolder.getLoginUser() == null ? null : LoginUserHolder.getLoginUser().getUserId();
+            DoctorDetail doctorDetail = loginUserId == null ? null : doctorDetailService.getById(registration.getDoctorId());
+            if (doctorDetail == null || !doctorDetail.getSystemUserId().equals(loginUserId)) {
+                return Result.fail(403, "当前医生无权发起该问诊");
+            }
+
+            PatientAttendant patientAttendant = patientAttendantService.getById(registration.getPatientId());
+            if (patientAttendant == null) {
                 return Result.fail(404, "患者不存在");
             }
-            PatientAttendant patientAttendant = list.get(0);
-            patientId=patientAttendant.getSystemUserId();
+
+            Long doctorId = doctorDetail.getSystemUserId();
+            Long patientId = patientAttendant.getSystemUserId();
+            String patientName = patientAttendant.getRealName();
             System.out.println("🏥 医生发起问诊，预约ID: " + registrationId + ", 医生ID: " + doctorId + ", 患者ID: " + patientId);
 
             // 先检查是否已存在房间
@@ -82,22 +107,18 @@ public class ChatController {
                 room.setUpdateTime(new Date());
                 roomService.save(room);
                 System.out.println("✅ 创建新房间，房间ID: " + room.getId());
+                updateRegistrationStatus(registrationId, RegistrationStatus.WAITING_CONFIRM.getCode());
 
 
             // 发送问诊请求通知给患者（通过WebSocket）
-            Map<String, Object> notification = new HashMap<>();
-            notification.put("type", "consultation_request");
-            notification.put("registrationId", registrationId);
-            notification.put("roomId", room.getId());
-            notification.put("doctorId", doctorId);
-            notification.put("patientId", patientId);
-            notification.put("patientName", patientName);
-            notification.put("timestamp", new Date());
+            Map<String, Object> notification = buildConsultationRequestNotification(registrationId, room, doctorDetail, patientAttendant);
 
-            ChatWebSocket.sendToPatientLongConnection(patientId, notification);
+            sendToPatientLongConnection(patientId, notification);
 
             // 启动患者响应超时定时器
-            ChatWebSocket.schedulePatientResponseTimeout(registrationId, room.getId());
+            if (consultationTimeoutScheduler != null) {
+                consultationTimeoutScheduler.schedulePatientResponseTimeout(registrationId, room.getId());
+            }
 
             // 返回房间ID和预约ID
             Map<String, Object> result = new HashMap<>();
@@ -157,8 +178,10 @@ public class ChatController {
             // 更新房间状态
             if ("accept".equals(response)) {
                 room.setRoomStatus(2); // 2-问诊中
+                updateRegistrationStatus(registrationId, RegistrationStatus.IN_PROGRESS.getCode());
             } else {
                 room.setRoomStatus(5); // 5-患者拒绝
+                updateRegistrationStatus(registrationId, RegistrationStatus.SUSPENDED.getCode());
             }
             room.setUpdateTime(new Date());
             roomService.updateById(room);
@@ -171,7 +194,11 @@ public class ChatController {
             notification.put("registrationId", registrationId);
             notification.put("timestamp", new Date());
 
-            ChatWebSocket.sendToDoctorLongConnection(room.getDoctorId(), notification);
+            sendToDoctorLongConnection(room.getDoctorId(), notification);
+
+            if (consultationTimeoutScheduler != null) {
+                consultationTimeoutScheduler.cancelPatientResponseTimeout(registrationId);
+            }
 
             System.out.println("✅ 患者响应成功，房间状态: " + room.getRoomStatus());
             return Result.ok("响应成功");
@@ -245,7 +272,6 @@ public class ChatController {
             wsMessage.put("content", message.getContent());
             wsMessage.put("createTime", message.getCreateTime());
 
-            ChatWebSocket.broadcastToChatRoom(message.getRoomId().toString(), wsMessage);
             if (nettySessionRegistry != null) {
                 nettySessionRegistry.broadcast(message.getRoomId().toString(), JSON.toJSONString(wsMessage));
             }
@@ -298,6 +324,11 @@ public class ChatController {
             room.setRoomStatus(status);
             room.setUpdateTime(new Date());
             roomService.updateById(room);
+            syncRegistrationStatusByRoomStatus(room.getRegistrationId(), status);
+
+            if (consultationTimeoutScheduler != null && room.getRegistrationId() != null && status != null && status != 1) {
+                consultationTimeoutScheduler.cancelPatientResponseTimeout(room.getRegistrationId());
+            }
 
             // 广播房间状态更新（尽量兼容前端字段）
             Map<String, Object> roomStatusMessage = new HashMap<>();
@@ -305,7 +336,6 @@ public class ChatController {
             roomStatusMessage.put("room_status", status);
             roomStatusMessage.put("roomId", roomId);
             roomStatusMessage.put("timestamp", new Date());
-            ChatWebSocket.broadcastToChatRoom(roomId.toString(), roomStatusMessage);
             broadcastToNettyRoom(roomId, roomStatusMessage);
 
             return Result.ok("状态更新成功");
@@ -373,6 +403,10 @@ public class ChatController {
     public Result<String> resumeConsultation(@RequestBody Map<String, Object> request) {
         try {
             Long registrationId = Long.valueOf(request.get("registrationId").toString());
+            Registration registration = registrationService.getById(registrationId);
+            if (registration == null) {
+                return Result.fail(404, "挂号记录不存在");
+            }
             LambdaQueryWrapper<Room> roomLambdaQueryWrapper = new LambdaQueryWrapper<>();
             roomLambdaQueryWrapper.eq(Room::getRegistrationId, registrationId);
             Room room = roomService.getOne(roomLambdaQueryWrapper);
@@ -380,29 +414,23 @@ public class ChatController {
                 return Result.fail(404, "房间不存在");
             }
 
+            DoctorDetail doctorDetail = registration.getDoctorId() == null ? null : doctorDetailService.getById(registration.getDoctorId());
+            PatientAttendant patientAttendant = registration.getPatientId() == null ? null : patientAttendantService.getById(registration.getPatientId());
+
             room.setRoomStatus(1);
             room.setUpdateTime(new Date());
             roomService.updateById(room);
+            updateRegistrationStatus(registrationId, RegistrationStatus.WAITING_CONFIRM.getCode());
 
             // 发送重新接诊通知给患者（格式与initiateConsultation一致）
-            Map<String, Object> notification = new HashMap<>();
-            notification.put("type", "consultation_request");
-            notification.put("registrationId", registrationId);
-            notification.put("roomId", room.getId());
-            notification.put("doctorId", room.getDoctorId());
-            notification.put("patientId", room.getPatientId());
-            notification.put("patientName", room.getPatientName());
-            notification.put("timestamp", new Date());
-            // 添加额外的字段，确保患者端能正确显示通知
-            notification.put("doctorName", "医生"); // 可以从医生信息中获取
-            notification.put("departmentName", "科室"); // 可以从医生信息中获取
-            notification.put("doctorTitle", "主治医师"); // 可以从医生信息中获取
-            notification.put("consultationType", "图文问诊");
+            Map<String, Object> notification = buildConsultationRequestNotification(registrationId, room, doctorDetail, patientAttendant);
             notification.put("message", "医生请求重新开始问诊，请确认是否同意。");
 
-            ChatWebSocket.sendToPatientLongConnection(room.getPatientId(), notification);
+            sendToPatientLongConnection(room.getPatientId(), notification);
 
-            ChatWebSocket.schedulePatientResponseTimeout(registrationId, room.getId());
+            if (consultationTimeoutScheduler != null) {
+                consultationTimeoutScheduler.schedulePatientResponseTimeout(registrationId, room.getId());
+            }
 
             return Result.ok("重新接诊成功");
         } catch (Exception e) {
@@ -429,6 +457,11 @@ public class ChatController {
             room.setRoomStatus(3); // 3-已结束
             room.setUpdateTime(new Date());
             roomService.updateById(room);
+            updateRegistrationStatus(room.getRegistrationId(), RegistrationStatus.COMPLETED.getCode());
+
+            if (consultationTimeoutScheduler != null && room.getRegistrationId() != null) {
+                consultationTimeoutScheduler.cancelPatientResponseTimeout(room.getRegistrationId());
+            }
             
             // 发送结束问诊消息给患者
             Map<String, Object> endMessage = new HashMap<>();
@@ -439,7 +472,6 @@ public class ChatController {
             endMessage.put("message", "问诊已结束，感谢您的配合");
             
             // 广播给聊天房间的所有用户
-            ChatWebSocket.broadcastToChatRoom(roomId.toString(), endMessage);
             broadcastToNettyRoom(roomId, endMessage);
             
             // 发送状态更新消息
@@ -449,7 +481,6 @@ public class ChatController {
             statusMessage.put("message", "问诊已结束");
             statusMessage.put("timestamp", new Date());
             
-            ChatWebSocket.broadcastToChatRoom(roomId.toString(), statusMessage);
             broadcastToNettyRoom(roomId, statusMessage);
             
             // 发送房间状态更新消息
@@ -459,7 +490,6 @@ public class ChatController {
             roomStatusMessage.put("roomId", roomId);
             roomStatusMessage.put("timestamp", new Date());
             
-            ChatWebSocket.broadcastToChatRoom(roomId.toString(), roomStatusMessage);
             broadcastToNettyRoom(roomId, roomStatusMessage);
             
             // 通知患者端断开连接
@@ -470,7 +500,7 @@ public class ChatController {
                 disconnectMessage.put("reason", "consultation_ended");
                 disconnectMessage.put("timestamp", new Date());
                 
-                ChatWebSocket.sendToPatientLongConnection(room.getPatientId(), disconnectMessage);
+                sendToPatientLongConnection(room.getPatientId(), disconnectMessage);
             }
             
             System.out.println("✅ 问诊结束成功，房间ID: " + roomId);
@@ -541,7 +571,6 @@ public class ChatController {
             wsMessage.put("content", imageUrl);
             wsMessage.put("createTime", chatMessage.getCreateTime());
 
-            ChatWebSocket.broadcastToChatRoom(roomId.toString(), wsMessage);
             broadcastToNettyRoom(roomId, wsMessage);
 
             // 返回图片URL
@@ -563,5 +592,91 @@ public class ChatController {
             return;
         }
         nettySessionRegistry.broadcast(roomId.toString(), JSON.toJSONString(message));
+    }
+
+    private static void sendToPatientLongConnection(Long patientId, Map<String, Object> notification) {
+        if (nettySessionRegistry == null || patientId == null || notification == null) {
+            return;
+        }
+        nettySessionRegistry.sendToPatient(patientId, JSON.toJSONString(notification));
+    }
+
+    private static void sendToDoctorLongConnection(Long doctorId, Map<String, Object> notification) {
+        if (nettySessionRegistry == null || doctorId == null || notification == null) {
+            return;
+        }
+        nettySessionRegistry.sendToDoctor(doctorId, JSON.toJSONString(notification));
+    }
+
+    private Map<String, Object> buildConsultationRequestNotification(Long registrationId,
+                                                                     Room room,
+                                                                     DoctorDetail doctorDetail,
+                                                                     PatientAttendant patientAttendant) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("type", "consultation_request");
+        notification.put("registrationId", registrationId);
+        notification.put("roomId", room.getId());
+        notification.put("doctorId", room.getDoctorId());
+        notification.put("patientId", room.getPatientId());
+        notification.put("patientName", patientAttendant != null ? patientAttendant.getRealName() : room.getPatientName());
+        notification.put("timestamp", new Date());
+        notification.put("doctorName", doctorDetail != null && doctorDetail.getRealName() != null ? doctorDetail.getRealName() : "医生");
+        notification.put("departmentName", resolveDepartmentName(doctorDetail));
+        notification.put("doctorTitle", doctorDetail != null && doctorDetail.getTitle() != null ? doctorDetail.getTitle() : "医生");
+        notification.put("consultationType", "图文问诊");
+        notification.put("message", "医生请求开始问诊，请确认是否同意。");
+        return notification;
+    }
+
+    private String resolveDepartmentName(DoctorDetail doctorDetail) {
+        if (doctorDetail == null || doctorDetail.getSubDepartmentId() == null || subDepartmentService == null) {
+            return "科室";
+        }
+        SubDepartment subDepartment = subDepartmentService.getById(doctorDetail.getSubDepartmentId());
+        if (subDepartment == null || subDepartment.getDepartmentName() == null || subDepartment.getDepartmentName().isBlank()) {
+            return "科室";
+        }
+        return subDepartment.getDepartmentName();
+    }
+
+    private static void updateRegistrationStatus(Long registrationId, Integer status) {
+        if (registrationService == null || registrationId == null || status == null) {
+            return;
+        }
+        try {
+            registrationService.changeStatus(registrationId, status);
+        } catch (Exception ex) {
+            log.warn("registration status transition failed, fallback to direct sync. registrationId={}, targetStatus={}",
+                    registrationId, status, ex);
+            try {
+                Registration registration = registrationService.getById(registrationId);
+                if (registration == null || Objects.equals(registration.getRegistrationStatus(), status)) {
+                    return;
+                }
+                Integer currentStatus = registration.getRegistrationStatus();
+                if (Objects.equals(currentStatus, RegistrationStatus.COMPLETED.getCode())
+                        || Objects.equals(currentStatus, RegistrationStatus.INVALID.getCode())) {
+                    return;
+                }
+                registration.setRegistrationStatus(status);
+                registrationService.updateById(registration);
+            } catch (Exception fallbackEx) {
+                log.error("registration status direct sync failed. registrationId={}, targetStatus={}",
+                        registrationId, status, fallbackEx);
+            }
+        }
+    }
+
+    private static void syncRegistrationStatusByRoomStatus(Long registrationId, Integer roomStatus) {
+        if (registrationId == null || roomStatus == null) {
+            return;
+        }
+        if (roomStatus == 2) {
+            updateRegistrationStatus(registrationId, RegistrationStatus.IN_PROGRESS.getCode());
+        } else if (roomStatus == 3) {
+            updateRegistrationStatus(registrationId, RegistrationStatus.COMPLETED.getCode());
+        } else if (roomStatus == 4 || roomStatus == 5) {
+            updateRegistrationStatus(registrationId, RegistrationStatus.SUSPENDED.getCode());
+        }
     }
 }

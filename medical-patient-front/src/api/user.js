@@ -70,57 +70,11 @@ export function getUserInfo() {
   })
 }
 
-// 更新用户信息
-export function updateUserInfo(data) {
+export function getDevToken(params = {}) {
   return request({
-    url: '/user/info',
-    method: 'put',
-    data
-  })
-}
-
-// 实名认证
-export function userAuth(data) {
-  return request({
-    url: '/user/auth',
-    method: 'post',
-    data
-  })
-}
-
-// 获取就诊人列表
-export function getPatientAttendantList() {
-  return request({
-    url: '/front/patient/attendant/getPatientList',
-    method: 'get'
-  })
-}
-
-// 添加就诊人
-export function addPatientAttendant(data) {
-  return request({
-    url: '/front/patient/attendant/addPatientAttendant',
-    method: 'post',
-    data
-  })
-}
-
-
-// 删除就诊人
-export function deletePatientAttendant(id) {
-  return request({
-    url: `/front/patient/attendant/removePatientAttendant`,
+    url: '/front/loginAndOut/devToken',
     method: 'get',
-    params: { id }
-  })
-}
-
-// 身份验证
-export function verifyIdentity(data) {
-  return request({
-    url: '/user/verify-identity',
-    method: 'post',
-    data
+    params
   })
 }
 
@@ -136,8 +90,6 @@ export function getPatientList() {
 export function getCaseList() {
   return getPatientList()
 }
-
-
 
 
 

@@ -107,5 +107,95 @@
 - 配置：local profile 切换为 MySQL 数据源（使用既有用户名/密码），并启用排班补齐与挂号状态对账开关（文件：`medical-back/src/main/resources/application-local.yml`、`start.md`）。
 
 2026-01-09
+- 后端（Netty/聊天超时）：新增 Netty 侧问诊超时调度器，替换旧 WebSocket 内部定时器，并在问诊响应/结束时取消超时任务（文件：`medical-back/src/main/java/cn/edu/ncu/medical/netty/NettyConsultationTimeoutScheduler.java`、`medical-back/src/main/java/cn/edu/ncu/medical/netty/NettyServerProperties.java`、`medical-back/src/main/java/cn/edu/ncu/medical/websocket/ChatController.java`、`medical-back/src/main/java/cn/edu/ncu/medical/websocket/ChatWebSocket.java`）。
+- 后端（旧 WS 下线开关）：旧 @ServerEndpoint 通过配置开关可禁用，便于灰度与回滚（文件：`medical-back/src/main/java/cn/edu/ncu/medical/websocket/WebSocketConfig.java`、`medical-back/src/main/resources/application.yml`）。
+- 后端（AI 治理）：新增 AI 请求截断/脱敏、限流与审计日志，并补齐 Redis 计数器支持（文件：`medical-back/src/main/java/cn/edu/ncu/medical/ai/AiGuardProperties.java`、`medical-back/src/main/java/cn/edu/ncu/medical/ai/AiRequestSanitizer.java`、`medical-back/src/main/java/cn/edu/ncu/medical/ai/AiRateLimiter.java`、`medical-back/src/main/java/cn/edu/ncu/medical/ai/AiAuditLogger.java`、`medical-back/src/main/java/cn/edu/ncu/medical/ai/AiRequestContext.java`、`medical-back/src/main/java/cn/edu/ncu/medical/ai/AiSanitizeMeta.java`、`medical-back/src/main/java/cn/edu/ncu/medical/ai/AiSanitizeResult.java`、`medical-back/src/main/java/cn/edu/ncu/medical/controller/common/AiController.java`、`medical-back/src/main/java/cn/edu/ncu/medical/utils/RedisCache.java`、`medical-back/src/main/resources/application.yml`）。
+- 文档：补充 Netty WS 灰度/回滚与验证步骤，新增 AI 治理参数说明（文件：`start.md`）。
+- 测试：新增 AI 治理与 Netty 超时调度的单元测试，并禁用已过期的七牛上传测试（文件：`medical-back/src/test/java/cn/edu/ncu/medical/ai/AiRequestSanitizerTest.java`、`medical-back/src/test/java/cn/edu/ncu/medical/ai/AiRateLimiterTest.java`、`medical-back/src/test/java/cn/edu/ncu/medical/ai/AiRequestContextTest.java`、`medical-back/src/test/java/cn/edu/ncu/medical/netty/NettyConsultationTimeoutSchedulerTest.java`、`medical-back/src/test/java/cn/edu/ncu/medical/UploadTest.java`）。
+
+2026-01-09
 - 后端（Netty）：补齐 Netty WS 侧对问诊响应、房间状态更新与状态消息的处理，支持向旧 WebSocket 房间广播以保证新旧互通（文件：`medical-back/src/main/java/cn/edu/ncu/medical/netty/NettyTextFrameHandler.java`、`medical-back/src/main/java/cn/edu/ncu/medical/netty/NettyWebSocketServer.java`）。
 - 后端（聊天广播互通）：REST 触发的房间状态更新、结束问诊与图片消息广播同步推送到 Netty 房间（文件：`medical-back/src/main/java/cn/edu/ncu/medical/websocket/ChatController.java`）。
+
+2026-01-09
+- 配置：local profile 数据源切到本地 `onlinetreat`（root/123456），并新增 `app.auth.dev-token-enabled` 以开启本地 dev token（文件：`medical-back/src/main/resources/application-local.yml`、`medical-back/src/main/resources/application.yml`）。
+- 后端（联调支持）：新增 local-only 的 dev token 接口，直接生成 JWT 并写入 Redis，并放行 devToken 路径避免鉴权拦截（文件：`medical-back/src/main/java/cn/edu/ncu/medical/controller/common/DevTokenController.java`、`medical-back/src/main/java/cn/edu/ncu/medical/config/WebMvcConfiguration.java`）。
+
+2026-01-21
+- 后端（Netty 统一）：移除旧 Spring WebSocket 依赖与 `@ServerEndpoint` 实现，仅保留 Netty WS；REST 通知/广播改为 Netty 单播/群播（文件：`medical-back/pom.xml`、`medical-back/src/main/java/cn/edu/ncu/medical/websocket/ChatController.java`、`medical-back/src/main/java/cn/edu/ncu/medical/netty/NettyTextFrameHandler.java`、`medical-back/src/main/java/cn/edu/ncu/medical/netty/NettyWebSocketServer.java`、`medical-back/src/main/java/cn/edu/ncu/medical/websocket/ChatWebSocket.java`、`medical-back/src/main/java/cn/edu/ncu/medical/websocket/WebSocketConfig.java`）。
+- 后端（鉴权兼容）：Netty 握手支持 auth 关闭场景的 token 可选校验，并从 roomId 解析长连接用户；长连接缺少 userId 时直接拒绝（文件：`medical-back/src/main/java/cn/edu/ncu/medical/netty/NettyHandshakeHandler.java`）。
+- 后端（状态码对齐）：新增 WAITING_CONFIRM=7，将 INVALID 调整为 8；退款/对账逻辑同步状态码与枚举（文件：`medical-back/src/main/java/cn/edu/ncu/medical/constant/RegistrationStatus.java`、`medical-back/src/main/java/cn/edu/ncu/medical/service/impl/AppointmentPaymentRecordServiceImpl.java`、`medical-back/src/main/java/cn/edu/ncu/medical/registration/RgistrationTimedTask.java`）。
+- 前端（状态码对齐）：患者端与医生端状态映射补齐“失效”(8)（文件：`medical-patient-front/src/utils/index.js`、`medical-front-doctor/back-vue-master/src/views/doctor/Consultations.vue`）。
+- 前端（WS 路径统一）：默认连接改为 Netty (`/netty/ws/chat`，开发端口 9001)，并更新诊断工具与代理配置（文件：`medical-patient-front/src/utils/websocket.js`、`medical-front-doctor/back-vue-master/src/utils/websocket.js`、`medical-patient-front/src/utils/websocket-test.js`、`medical-patient-front/src/utils/connection-diagnostics.js`、`medical-front-doctor/back-vue-master/vite.config.js`）。
+- 精简无用接口：移除占位/未落地 API 与空 Controller，保留核心流程接口（文件：`medical-patient-front/src/api/appointment.js`、`medical-patient-front/src/api/record.js`、`medical-patient-front/src/api/user.js`、`medical-front-doctor/back-vue-master/src/api/doctor.js`、`medical-front-doctor/back-vue-master/src/api/chat.js`、`medical-front-doctor/back-vue-master/src/api/admin.js`、`medical-back/src/main/java/cn/edu/ncu/medical/controller/common/NotificationController.java`、`medical-back/src/main/java/cn/edu/ncu/medical/controller/common/RoomController.java`）。
+- 文档：WS 路径与流程说明更新，并新增第一工期提交文档（文件：`PLAN.md`、`start.md`、`medical-patient-front/PATIENT_LOGIC.md`、`phase-1.md`）。
+
+2026-01-21
+- 后端（范围收敛）：移除挂号支付/药品订单/通知/排班模板相关实体、服务、Mapper、Controller 及 RabbitMQ/延迟队列配置；挂号创建改为直接落库并同步号源计数（文件：`medical-back/src/main/java/cn/edu/ncu/medical/controller/patient/AppointRegistrationController.java`、`medical-back/src/main/java/cn/edu/ncu/medical/service/RegistrationService.java`、`medical-back/src/main/java/cn/edu/ncu/medical/service/impl/RegistrationServiceImpl.java`）。
+- 后端（依赖/配置）：移除 RabbitMQ 与支付 SDK 依赖，清理 RabbitMQ 配置（文件：`medical-back/pom.xml`、`medical-back/src/main/resources/application.yml`、`medical-back/src/main/resources/application-local.yml`）。
+- 前端（患者端精简）：移除在线购药与支付记录页面/路由/菜单，挂号创建后跳转“我的预约”，就诊记录仅展示处方状态（文件：`medical-patient-front/src/layout/index.vue`、`medical-patient-front/src/router/index.js`、`medical-patient-front/src/views/appointment/index.vue`、`medical-patient-front/src/views/appointment/list.vue`、`medical-patient-front/src/views/record/index.vue`、`medical-patient-front/src/api/appointment.js`、`medical-patient-front/src/utils/index.js`）。
+- 文档：更新计划与第一工期图示，移除支付/购药链路（文件：`PLAN.md`、`phase-1.md`）。
+
+2026-01-21
+- 后端（排班模板恢复）：恢复 `schedule_template` 实体/Mapper/Service/Controller，并新增按天补齐排班的生成器（文件：`medical-back/src/main/java/cn/edu/ncu/medical/entity/ScheduleTemplate.java`、`medical-back/src/main/java/cn/edu/ncu/medical/mapper/ScheduleTemplateMapper.java`、`medical-back/src/main/resources/mapper/ScheduleTemplateMapper.xml`、`medical-back/src/main/java/cn/edu/ncu/medical/service/ScheduleTemplateService.java`、`medical-back/src/main/java/cn/edu/ncu/medical/service/impl/ScheduleTemplateServiceImpl.java`、`medical-back/src/main/java/cn/edu/ncu/medical/controller/admin/ScheduleTemplateController.java`、`medical-back/src/main/java/cn/edu/ncu/medical/schedule/ScheduleGenerator.java`）。
+- 后端（管理员数据）：新增医生详情列表接口，供排班模板管理使用（文件：`medical-back/src/main/java/cn/edu/ncu/medical/controller/admin/DoctorController.java`）。
+- 前端（管理员）：新增排班模板管理页面与路由/菜单，并补齐相关 API（文件：`medical-front-doctor/back-vue-master/src/views/admin/ScheduleTemplates.vue`、`medical-front-doctor/back-vue-master/src/router/index.js`、`medical-front-doctor/back-vue-master/src/components/layout/AppSidebar.vue`、`medical-front-doctor/back-vue-master/src/api/admin.js`）。
+- 文档：恢复排班模板模型描述与计划条目（文件：`phase-1.md`、`PLAN.md`）。
+
+2026-01-21
+- 后端（补偿生成）：新增管理员手动触发排班补偿生成接口，并记录生成条数（文件：`medical-back/src/main/java/cn/edu/ncu/medical/controller/admin/ScheduleController.java`、`medical-back/src/main/java/cn/edu/ncu/medical/schedule/ScheduleGenerator.java`）。
+- 前端（管理员）：排班模板页新增“补偿生成”按钮，直接触发补偿生成（文件：`medical-front-doctor/back-vue-master/src/views/admin/ScheduleTemplates.vue`、`medical-front-doctor/back-vue-master/src/api/admin.js`）。
+- 文档：工期二补充模板与补偿生成说明，工期五补充统计报表占位说明（文件：`PLAN.md`、`phase-1.md`）。
+
+2026-01-21
+- 前端（管理员）：重做“科室管理”页面为可用 CRUD，支持科室列表与子科室列表加载，新增/删除科室与子科室（含上传子科室图片），并补齐对应 API（文件：`medical-front-doctor/back-vue-master/src/views/admin/Departments.vue`、`medical-front-doctor/back-vue-master/src/api/admin.js`）。
+
+2026-01-21
+- 文档：调整核心实体关系图，补充排班模板与生成关系并优化展示顺序（文件：`phase-1.md`）。
+
+2026-01-21
+- 前端（管理员）：重做“患者管理”页面为真实 CRUD，接入患者列表/详情/新增/更新/启用禁用/删除接口（文件：`medical-front-doctor/back-vue-master/src/views/admin/Patients.vue`）。
+
+2026-01-21
+- 前端（管理员）：重做“药品管理”页面为真实 CRUD，接入药品列表/搜索/新增/更新/删除接口，字段收敛到现有 Drug 模型（文件：`medical-front-doctor/back-vue-master/src/views/admin/Medicines.vue`、`medical-front-doctor/back-vue-master/src/api/admin.js`）。
+
+2026-01-21
+- 前端（患者端）：移除聊天页的模拟回复/模拟病历逻辑与无房间时的假数据分支，房间不存在时提示并返回列表（文件：`medical-patient-front/src/views/appointment/chat.vue`）。
+
+2026-01-21
+- 前端（医生端）：问诊列表去除模拟倒计时与“从预约生成问诊”逻辑，结束问诊改为提交就诊记录并调用完成状态接口，UI 移除处方/关联预约占位（文件：`medical-front-doctor/back-vue-master/src/views/doctor/Consultations.vue`）。
+
+2026-01-21
+- 前端（医生端）：个人中心密码修改改为真实接口调用，移除模拟头像/统计数据注入（文件：`medical-front-doctor/back-vue-master/src/views/doctor/Profile.vue`、`medical-front-doctor/back-vue-master/src/api/index.js`）。
+
+2026-01-21
+- 前端（医生端/管理员）：仪表盘改为真实统计卡片，基于挂号/医生/患者/药品/排班模板等接口聚合，无模拟图表与假数据（文件：`medical-front-doctor/back-vue-master/src/views/doctor/Dashboard.vue`、`medical-front-doctor/back-vue-master/src/views/admin/Dashboard.vue`）。
+
+2026-01-21
+- 前端（路由精简）：移除医生端未实现的问诊详情/工作安排/系统设置路由，头部菜单移除设置入口并仅保留医生端个人信息（文件：`medical-front-doctor/back-vue-master/src/router/index.js`、`medical-front-doctor/back-vue-master/src/components/layout/AppHeader.vue`）。
+
+2026-01-21
+- 后端（联表补全字段）：挂号/病历查询补齐患者电话、性别、年龄、账号ID等展示字段，并新增挂号详情查询用于医生端单条拉取（文件：`medical-back/src/main/resources/mapper/RegistrationMapper.xml`、`medical-back/src/main/java/cn/edu/ncu/medical/mapper/RegistrationMapper.java`、`medical-back/src/main/java/cn/edu/ncu/medical/service/RegistrationService.java`、`medical-back/src/main/java/cn/edu/ncu/medical/service/impl/RegistrationServiceImpl.java`、`medical-back/src/main/resources/mapper/MedicalRecordMapper.xml`、`medical-back/src/main/java/cn/edu/ncu/medical/entity/vo/RegistrationInfo.java`、`medical-back/src/main/java/cn/edu/ncu/medical/entity/vo/MedicalRecordInfo.java`、`medical-back/src/main/java/cn/edu/ncu/medical/controller/doctor/RegistrationController.java`）。
+- 前端（医生端）：聊天页改为从挂号信息拉取真实患者资料，不再写死性别/年龄（文件：`medical-front-doctor/back-vue-master/src/views/doctor/Chat.vue`）。
+
+2026-03-16
+- 环境（Docker）：修正 MinIO 端口占用问题，控制台端口改为 `9002`，并让启动脚本在检测到旧版 `9001` 映射时自动重建容器；服务检查脚本与启动文档同步更新（文件：`scripts/start-minio.bat`、`scripts/check-services.bat`、`start.md`）。
+- 后端（问诊状态同步）：`ChatController` 的挂号状态推进增加兜底同步，避免问诊房间已进入等待/进行中而挂号状态未落库（文件：`medical-back/src/main/java/cn/edu/ncu/medical/websocket/ChatController.java`）。
+- 后端（库表对齐）：恢复 `Registration` 的 `person_key/request_token` 映射，并执行现成迁移脚本补齐本地库缺失的列与 `registration_person_lock` 表，修通 Redis 预占 + RabbitMQ 异步落库链路（文件：`medical-back/src/main/java/cn/edu/ncu/medical/entity/Registration.java`、`scripts/20260312_registration_person_key.sql`）。
+- 实测：已真实验证 `ws://localhost:9001/netty/ws/chat/{roomId}` 长连接、医生发起问诊/患者接收/患者接受后的状态同步，以及患者端 `/front/patient/appointment/create` -> `/front/patient/appointment/status` -> 挂号列表入库闭环。
+
+2026-03-18
+- 后端（排班清理）：补偿生成逻辑新增“无效排班清理”，会在生成前扫描近历史与未来窗口，对无挂号依赖的重复排班、失效模板排班和未来快照不一致排班做逻辑删除，并返回 `cleanedCount`（文件：`medical-back/src/main/java/cn/edu/ncu/medical/schedule/ScheduleGenerator.java`、`medical-back/src/main/java/cn/edu/ncu/medical/controller/admin/ScheduleController.java`）。
+- 前端（管理员）：排班模板页补偿生成提示新增清理数量展示，便于管理员确认这次补偿不仅补缺失，也处理了无效排班（文件：`medical-front-doctor/back-vue-master/src/views/admin/ScheduleTemplates.vue`）。
+- 后端（补偿模式收敛）：将排班补偿生成拆成“仅补缺失”和“补缺失并清理未来无效”两种模式；启动与定时任务默认只补缺失，避免后台任务隐式删除未来排班（文件：`medical-back/src/main/java/cn/edu/ncu/medical/schedule/ScheduleGenerator.java`、`medical-back/src/main/java/cn/edu/ncu/medical/controller/admin/ScheduleController.java`）。
+- 前端（管理员）：排班模板页拆分为两个显式动作按钮，对应不同补偿模式，并更新提示文案（文件：`medical-front-doctor/back-vue-master/src/views/admin/ScheduleTemplates.vue`、`medical-front-doctor/back-vue-master/src/api/admin.js`）。
+- 文档：第二工期补偿生成说明更新为双模式，图示同步调整（文件：`phase-2.md`）。
+- 范围收敛（医生端）：移除医生端“我的排班”页面、菜单与专用查询接口，医生侧统一以挂号列表和接诊流程为主；旧 `/doctor/appointments` 路径改为跳转到在线问诊（文件：`medical-front-doctor/back-vue-master/src/router/index.js`、`medical-front-doctor/back-vue-master/src/components/layout/AppSidebar.vue`、`medical-front-doctor/back-vue-master/src/views/doctor/Dashboard.vue`、`medical-front-doctor/back-vue-master/src/api/doctor.js`、`medical-back/src/main/java/cn/edu/ncu/medical/service/ScheduleService.java`、`medical-back/src/main/java/cn/edu/ncu/medical/service/impl/ScheduleServiceImpl.java`、`phase-2.md`）。
+- 后端（残留清理）：删除医生端排班专用测试与服务层残留无用依赖，避免移除功能后仍被过期测试和无效导入干扰编译（文件：`medical-back/src/test/java/cn/edu/ncu/medical/GetScheduleListTest.java`、`medical-back/src/main/java/cn/edu/ncu/medical/service/ScheduleService.java`、`medical-back/src/main/java/cn/edu/ncu/medical/service/impl/ScheduleServiceImpl.java`）。
+[2026-03-18 21:03] 联调修复：问诊发起与病历提交不再信任前端 doctorId/patientId。`/chat/initiate-consultation` 改为按登录态校验医生归属并从挂号记录还原真实 doctor/patient；`/front/doctor/medicalRecord/addMedicalRecord` 改为从 LoginUserHolder 解析当前医生，避免前端状态漂移导致 room.doctor_id 和 medical_record.doctor_id 写错。
+[2026-03-18 21:05] 联调修复：患者“我的预约”页补上 `WAITING_CONFIRM(7)` 的接受/拒绝按钮，避免页面刷新后只能依赖丢失的实时弹窗而无法继续问诊（文件：`medical-patient-front/src/views/appointment/list.vue`）。
+[2026-03-18 21:12] 联调修复：医生端“重新接诊”流程移除遗留的 `startResponseTimer` 空引用，避免后端已成功发起等待确认但前端误报“重新接诊失败”，影响继续联调（文件：`medical-front-doctor/back-vue-master/src/views/doctor/Consultations.vue`）。
+[2026-03-18 21:18] 联调修复：医生聊天页历史消息兼容 `createTime/senderType/messageType` 驼峰字段，修复旧代码按 `create_time/sender_type/message_type` 解析导致的 `Invalid Date` 和文本消息被当成图片显示“加载失败”问题（文件：`medical-front-doctor/back-vue-master/src/views/doctor/Chat.vue`）。
+[2026-03-18 21:21] 联调补齐：患者“就诊记录详情”接入真实处方明细接口，详情弹窗可查看药品名称、数量、单位、单价与处方属性，补齐病历后半段可视化闭环（文件：`medical-patient-front/src/api/record.js`、`medical-patient-front/src/views/record/index.vue`）。
+[2026-03-19 10:44] 数据口径修复：患者挂号列表与单条挂号详情改为优先使用 `registration.doctor_id -> doctor_detail/sub_department` 作为医生与科室主数据源，不再继续吃过期的 `schedule.doctor_name/department_name` 快照；医生聊天页也同步改为从挂号详情回填真实医生姓名，避免挂号、聊天、病历三处医生名称不一致（文件：`medical-back/src/main/resources/mapper/RegistrationMapper.xml`、`medical-front-doctor/back-vue-master/src/views/doctor/Chat.vue`）。
+[2026-03-19 13:47] 联调修复：问诊发起与重新接诊通知统一补齐真实 `doctorName/departmentName/doctorTitle`，患者端弹窗不再显示“医生/科室/主治医师”占位值；已用患者首页长连接 + `/chat/resume-consultation` 实测弹窗显示为“韩雪梅 / 妇科 / 专家”（文件：`medical-back/src/main/java/cn/edu/ncu/medical/websocket/ChatController.java`）。

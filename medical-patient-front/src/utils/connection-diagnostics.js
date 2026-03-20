@@ -5,7 +5,7 @@
 // 检查后端服务器是否可访问
 export async function checkBackendServer() {
   const backendHost = import.meta.env.DEV ? 'localhost:8080' : window.location.host
-  const testUrl = `http://${backendHost}/common/chat/waiting-patients`
+  const testUrl = `http://${backendHost}/treat/chat/waiting-patients`
   
   try {
     const response = await fetch(testUrl, {

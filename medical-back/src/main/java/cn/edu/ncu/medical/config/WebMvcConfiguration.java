@@ -35,7 +35,8 @@ public class WebMvcConfiguration implements WebMvcConfigurer {
                             "/front/loginAndOut/login",
                             "/front/loginAndOut/logout",
                             "/front/loginAndOut/findPassword",
-                            "/front/loginAndOut/getEmailCode"
+                            "/front/loginAndOut/getEmailCode",
+                            "/front/loginAndOut/devToken"
                     );
             return;
         }

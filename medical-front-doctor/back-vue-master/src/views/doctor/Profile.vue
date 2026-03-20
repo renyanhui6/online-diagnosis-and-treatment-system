@@ -132,7 +132,7 @@
 import { ref, reactive, onMounted } from 'vue';
 import { Lock } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
-import { getDoctorInfo } from '@/api';
+import { getDoctorInfo, modifyPassword } from '@/api';
 
 // 状态变量
 const activeTab = ref('basic');
@@ -140,6 +140,7 @@ const doctorInfo = ref({});
 
 // 对话框状态
 const passwordDialogVisible = ref(false);
+const passwordFormRef = ref(null);
 
 // 表单数据
 const passwordForm = reactive({
@@ -206,17 +207,6 @@ function maskEmail(email) {
 
 // 移除了getSkillColor和formatTooltip函数
 
-function handleAvatarChange(file) {
-  // 实际项目中应该上传到服务器
-  // 这里模拟上传成功
-  const reader = new FileReader();
-  reader.readAsDataURL(file.raw);
-  reader.onload = () => {
-    doctorInfo.value.avatar = reader.result;
-    ElMessage.success('头像上传成功');
-  };
-}
-
 function changePassword() {
   passwordForm.currentPassword = '';
   passwordForm.newPassword = '';
@@ -224,13 +214,26 @@ function changePassword() {
   passwordDialogVisible.value = true;
 }
 
-function submitPasswordChange() {
-  // 实际项目中应该调用API修改密码
-  // 这里模拟修改成功
-  setTimeout(() => {
-    ElMessage.success('密码修改成功');
-    passwordDialogVisible.value = false;
-  }, 1000);
+async function submitPasswordChange() {
+  if (!passwordFormRef.value) return;
+  await passwordFormRef.value.validate(async (valid) => {
+    if (!valid) return;
+    try {
+      const response = await modifyPassword({
+        password: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      });
+      if (response.code === 200) {
+        ElMessage.success('密码修改成功');
+        passwordDialogVisible.value = false;
+      } else {
+        ElMessage.error(response.message || '密码修改失败');
+      }
+    } catch (error) {
+      console.error('密码修改失败:', error);
+      ElMessage.error('密码修改失败，请稍后重试');
+    }
+  });
 }
 
 // 移除了专业技能相关函数
@@ -260,23 +263,8 @@ async function fetchDoctorInfo() {
         address: response.data.address || '',
         biography: response.data.introduction || '',
         subDepartmentId: response.data.subDepartmentId || '',
-        professionalLicenseNumber: response.data.professionalLicenseNumber || '',
-        stats: {
-          consultations: 1286,
-          prescriptions: 952,
-          rating: 4.8
-        }
+        professionalLicenseNumber: response.data.professionalLicenseNumber || ''
       };
-      
-      // 确保stats对象及其属性存在，设置默认值
-      if (!doctorInfo.value.stats) {
-        doctorInfo.value.stats = {};
-      }
-      
-      // 为stats对象的属性设置默认值
-      doctorInfo.value.stats.consultations = doctorInfo.value.stats.consultations || 0;
-      doctorInfo.value.stats.prescriptions = doctorInfo.value.stats.prescriptions || 0;
-      doctorInfo.value.stats.rating = doctorInfo.value.stats.rating || 0;
     } else {
       ElMessage.error('获取医生信息失败');
     }

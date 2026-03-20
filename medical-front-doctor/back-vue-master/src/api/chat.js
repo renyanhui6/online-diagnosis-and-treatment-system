@@ -20,10 +20,6 @@ export function getChatRoomById(roomId) {
   return api.get(`/chat/room-by-id/${roomId}`);
 }
 
-// 创建聊天室
-export function createChatRoom(data) {
-  return api.post('/chat/room', data);
-}
 
 // 获取聊天消息列表
 export function getChatMessages(roomId, params) {
@@ -54,16 +50,4 @@ export function endConsultation(roomId) {
   return api.post(`/chat/room/${roomId}/end`);
 }
 
-// 获取患者响应状态
-export function getPatientResponseStatus(consultationId) {
-  return api.get(`/chat/patient-response/${consultationId}`);
-}
-
-// 患者响应问诊请求
-export function respondToConsultation(consultationId, response, roomId) {
-  return api.post('/chat/respond', {
-    registrationId: consultationId,
-    response,
-    roomId
-  });
-} 
+ 

@@ -107,12 +107,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { Picture, ArrowLeft } from '@element-plus/icons-vue'
-import { getAppointmentDetail } from '../../api/appointment'
-import { getChatMessages, sendChatMessage, uploadChatImage } from '../../api/chat'
+import { getChatMessages, uploadChatImage } from '../../api/chat'
 import { getAppointmentStatusText, getAppointmentStatusType, formatDate as formatDateUtil } from '../../utils'
 import { WebSocketService } from '../../utils/websocket'
 import UserStorage from '../../utils/userStorage'
@@ -122,9 +121,6 @@ const router = useRouter()
 
 // 聊天内容区域引用，用于滚动到底部
 const chatContentRef = ref(null)
-
-// 折叠面板激活项
-const activeCollapse = ref(['record'])
 
 // 预约信息
 const appointmentInfo = reactive({
@@ -151,12 +147,6 @@ const roomInfo = reactive({
   message: ''
 })
 
-// 队列信息
-const queueInfo = reactive({
-  count: 0,
-  waitTime: '约15分钟'
-})
-
 // 聊天消息列表
 const messageList = ref([])
 
@@ -169,25 +159,6 @@ const patientAvatar = ref('https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c
 
 // WebSocket服务
 let wsService = null
-
-// 就诊记录
-const medicalRecord = reactive({
-  complaint: '',      // 主诉
-  presentIllness: '', // 现病史
-  pastHistory: '',    // 既往史
-  diagnosis: '',      // 诊断结果
-  advice: ''          // 医嘱
-})
-
-// 处方信息
-const prescription = ref([])
-
-// 计算处方总金额
-const prescriptionTotal = computed(() => {
-  return prescription.value.reduce((total, item) => {
-    return total + (item.price * item.quantity)
-  }, 0).toFixed(2)
-})
 
 // 获取预约状态文本
 const getStatusText = (status) => {
@@ -284,88 +255,6 @@ const handleImageUpload = async (file) => {
 const scrollToBottom = () => {
   if (chatContentRef.value) {
     chatContentRef.value.scrollTop = chatContentRef.value.scrollHeight
-  }
-}
-
-// 获取随机回复
-const getRandomReply = () => {
-  const replies = [
-    '请详细描述一下您的症状。',
-    '您的症状持续多久了？',
-    '您之前有类似的症状吗？',
-    '您有服用过什么药物吗？',
-    '您的症状有什么特点？比如什么时候加重，什么时候减轻？',
-    '您有任何过敏史吗？',
-    '您的家族中有人有类似的症状吗？',
-    '您最近的饮食习惯如何？',
-    '您的睡眠质量如何？',
-    '根据您的描述，我建议您...',
-    '这种情况需要进一步检查，建议您...',
-    '您的症状可能与...有关，建议您...',
-    '请不要担心，这种情况比较常见，我们可以...',
-    '您需要注意休息，保持良好的生活习惯。',
-    '我会为您开具一些药物，请按照说明服用。'
-  ]
-  return replies[Math.floor(Math.random() * replies.length)]
-}
-
-// 更新就诊记录
-const updateMedicalRecord = () => {
-  // 模拟更新就诊记录
-  if (!medicalRecord.complaint) {
-    medicalRecord.complaint = '患者自述头痛、乏力，持续3天。'
-  }
-  
-  if (!medicalRecord.presentIllness) {
-    medicalRecord.presentIllness = '患者3天前无明显诱因出现头痛，以额部为主，疼痛呈持续性，伴有轻度恶心，无呕吐。'
-  }
-  
-  if (messageList.value.length > 5 && !medicalRecord.pastHistory) {
-    medicalRecord.pastHistory = '否认高血压、糖尿病等慢性病史，否认药物过敏史。'
-  }
-  
-  if (messageList.value.length > 8 && !medicalRecord.diagnosis) {
-    medicalRecord.diagnosis = '1. 紧张性头痛\n2. 疲劳综合征'
-  }
-  
-  if (messageList.value.length > 10 && !medicalRecord.advice) {
-    medicalRecord.advice = '1. 注意休息，避免过度疲劳\n2. 保持规律作息，避免熬夜\n3. 按时服药，如症状加重及时就医'
-    
-    // 添加处方
-    if (prescription.value.length === 0) {
-      prescription.value = [
-        {
-          name: '布洛芬缓释胶囊',
-          specification: '0.3g*10粒/盒',
-          dosage: '口服，一次1粒，一日2次，饭后服用',
-          quantity: 2,
-          price: 25.8
-        },
-        {
-          name: '维生素B族片',
-          specification: '100片/瓶',
-          dosage: '口服，一次1片，一日3次',
-          quantity: 1,
-          price: 32.5
-        }
-      ]
-    }
-  }
-  
-  // 如果消息超过15条，模拟问诊结束
-  if (messageList.value.length > 15 && appointmentInfo.status === 3) {
-    appointmentInfo.status = 4 // 已完成
-    appointmentInfo.endTime = new Date()
-    
-    // 显示问诊结束提示
-    ElMessageBox.alert(
-      '医生已结束本次问诊，您可以在就诊记录中查看诊断结果和处方信息。',
-      '问诊结束',
-      {
-        confirmButtonText: '确定',
-        type: 'info'
-      }
-    )
   }
 }
 
@@ -840,15 +729,9 @@ const fetchAppointmentDetail = async () => {
       // 初始化WebSocket
       initWebSocket()
     } else {
-      // 如果房间不存在，创建模拟数据
-      console.log('房间不存在，使用模拟数据')
-      appointmentInfo.id = roomInfo.id
-      appointmentInfo.doctorName = '医生'
-      appointmentInfo.patientName = '患者'
-      appointmentInfo.status = 3 // 问诊中
-      
-      // 初始化WebSocket
-      initWebSocket()
+      ElMessage.warning('医生尚未发起问诊，请稍后再试')
+      router.push('/appointment/list')
+      return
     }
     
   } catch (error) {

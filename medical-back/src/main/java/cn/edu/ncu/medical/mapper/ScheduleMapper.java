@@ -6,7 +6,6 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.sql.Date;
-import java.util.List;
 
 /**
 * @author star
@@ -20,9 +19,9 @@ public interface ScheduleMapper extends BaseMapper<Schedule> {
 
 	Integer existsSchedule(@Param("doctorId") Long doctorId,@Param("scheduleDate") Date scheduleDate,@Param("isMorning") boolean isMorning);
 
+	int takeAppointmentSlot(@Param("scheduleId") Long scheduleId);
 
 }
-
 
 
 

@@ -6,20 +6,26 @@ server:
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://47.122.118.231:3306/OnlineTreat?serverTimezone=Asia/Shanghai
-    username: root
-    password: Qwer_1234
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/onlinetreat?serverTimezone=Asia/Shanghai}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
   data:
     redis:
       timeout: 20000
-      host: 47.122.118.231
-      port: 6379
-      password: Qwer_1234
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      username: ${SPRING_REDIS_USERNAME:}
+      password: ${SPRING_REDIS_PASSWORD:}
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
   mail:
-    host: smtp.qq.com
-    port: 587
-    username: 2679327648@qq.com  # 发件邮箱
-    password: vebbhptoptrdebeb  # QQ邮箱授权码（非登录密码）
+    host: ${SPRING_MAIL_HOST:smtp.qq.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
     default-encoding: UTF-8
     properties:
       mail:
@@ -36,16 +42,6 @@ spring:
       max-file-size: 10MB
       max-request-size: 50MB
 
-  rabbitmq:
-    host: 47.122.118.231
-    port: 5672
-    username: admin
-    password: Qwer_1234
-    virtual-host:
-    connection-timeout: 10000ms
-    address-shuffle-mode:
-
-
 upload:
   # MinIO 配置（本地对象存储）
   endpoint: ${MINIO_ENDPOINT:}
@@ -61,21 +57,42 @@ mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
+app:
+  auth:
+    dev-token-enabled: false
+  registration:
+    reservation:
+      enabled: true
+      processing-ttl-seconds: 20
+      failed-keep-seconds: 600
+      scan-past-days: 1
+      scan-future-days: 30
+      scan-batch-size: 100
+      consumer-max-retries: 5
+
 netty:
   ws:
     enabled: true
     port: 9001
     path: /netty/ws/chat
     idle-seconds: 90
+    patient-response-timeout-minutes: 3
 
 ai:
+  guard:
+    mask-enabled: true
+    audit-enabled: true
+    rate-limit-enabled: true
+    max-summary-chars: 1000
+    max-snippet-chars: 2000
+    max-description-chars: 500
+    max-gender-chars: 10
+    max-symptom-chars: 50
+    max-symptom-count: 10
+    rate-limit-window-seconds: 60
+    rate-limit-max-requests: 20
   deepseek:
     base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
     api-key: ${DEEPSEEK_API_KEY:}
     model: ${DEEPSEEK_MODEL:deepseek-chat}
     timeout-seconds: ${DEEPSEEK_TIMEOUT_SECONDS:20}
-
-
-
-
-#vebbhptoptrdebeb

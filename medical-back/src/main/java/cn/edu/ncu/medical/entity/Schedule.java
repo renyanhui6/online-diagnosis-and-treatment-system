@@ -24,7 +24,7 @@ public class Schedule {
     private Long doctorId;
 
     private String doctorName;
-    @JsonFormat(pattern = "yyyy-MM-dd")
+    @JsonFormat(pattern = "yyyy-MM-dd", timezone = "Asia/Shanghai")
     private Date scheduleDate;
 
     private Integer isMorning;

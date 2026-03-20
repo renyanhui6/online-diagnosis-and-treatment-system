@@ -27,8 +27,8 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, '')
       },
       // 配置WebSocket代理 - 更精确的路径匹配
-      '/ws/common/ws/chat': {
-        target: 'ws://localhost:8080',
+      '/ws/netty/ws/chat': {
+        target: 'ws://localhost:9001',
         ws: true,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/ws/, '')

@@ -1,7 +1,10 @@
 package cn.edu.ncu.medical.service;
 
 import cn.edu.ncu.medical.entity.Registration;
+import cn.edu.ncu.medical.entity.dto.AppointmentCreateRequest;
+import cn.edu.ncu.medical.entity.dto.AppointmentReservationMessage;
 import cn.edu.ncu.medical.entity.dto.RegistrationCondition;
+import cn.edu.ncu.medical.entity.vo.AppointmentReservationStatusVo;
 import cn.edu.ncu.medical.entity.vo.RegistrationInfo;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -18,7 +21,7 @@ public interface RegistrationService extends IService<Registration> {
      * 医生根据自己id和状态查询排队中的患者（号)
      * @param doctorId
      * @param status
-     *               挂号状态(int)0 - 'pending_payment'（待支付）
+     *               挂号状态(int)0 - 'pending_payment'（待支付，简化后不再使用）
      * 1-‘已支付’
      * 2 - 'queuing'（排队中）
      * 3 - in_progress - 问诊中
@@ -26,7 +29,7 @@ public interface RegistrationService extends IService<Registration> {
      *
      * 5- suspended '（患者未及时响应，暂时挂起，等待后续处理）
      * 6-“已回归”
-     * 7-‘待退款’
+     * 7-‘等待患者确认’
      * 8-“失效”（正常过期失效，和退款失效）
      * @return 挂号信息
      */
@@ -56,6 +59,22 @@ public interface RegistrationService extends IService<Registration> {
     IPage<RegistrationInfo> getAllRegistrationList(Long doctorId, Page<RegistrationInfo> page,
                                                           RegistrationCondition condition);
 
+    /**
+     * 创建挂号记录（简化为直接创建，不再走支付流程）
+     * @param registration 挂号信息
+     * @param userId 当前登录用户ID
+     * @return 挂号ID
+     */
+    AppointmentReservationStatusVo createRegistration(AppointmentCreateRequest request, Long userId);
+
+    AppointmentReservationStatusVo getReservationStatus(String token, Long userId);
+
+    void consumeReservedRegistration(AppointmentReservationMessage message);
+
+    void failReservation(AppointmentReservationMessage message, String reason);
+
+    void releaseExpiredReservation(Long scheduleId, String token);
+
 
 
 
@@ -65,7 +84,7 @@ public interface RegistrationService extends IService<Registration> {
      * @param registrationId
      * @return
      */
-    Registration getRegistrationById(Long registrationId);
+    RegistrationInfo getRegistrationById(Long registrationId);
 
 
 

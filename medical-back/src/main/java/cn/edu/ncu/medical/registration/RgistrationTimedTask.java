@@ -113,7 +113,8 @@ public class RgistrationTimedTask {
                                     RegistrationStatus.PAID.getCode(),
                                     RegistrationStatus.QUEUING.getCode(),
                                     RegistrationStatus.SUSPENDED.getCode(),
-                                    RegistrationStatus.RESUMED.getCode())
+                                    RegistrationStatus.RESUMED.getCode(),
+                                    RegistrationStatus.WAITING_CONFIRM.getCode())
                             .set(Registration::getRegistrationStatus, RegistrationStatus.INVALID.getCode())
                             .set(Registration::getUpdateTime, new Date());
                     registrationService.update(toInvalid);

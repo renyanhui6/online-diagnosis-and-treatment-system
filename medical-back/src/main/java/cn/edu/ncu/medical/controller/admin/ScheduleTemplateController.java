@@ -1,86 +1,94 @@
 package cn.edu.ncu.medical.controller.admin;
 
 import cn.edu.ncu.medical.entity.ScheduleTemplate;
+import cn.edu.ncu.medical.exception.AppointmentException;
 import cn.edu.ncu.medical.exception.MyRuntimeException;
 import cn.edu.ncu.medical.result.Result;
 import cn.edu.ncu.medical.result.ResultCodeEnum;
-import cn.edu.ncu.medical.service.DoctorDetailService;
 import cn.edu.ncu.medical.service.ScheduleTemplateService;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("back/admin/scheduleTemplate")
+@RequestMapping("/back/admin/scheduleTemplate")
 public class ScheduleTemplateController {
-	@Autowired
-	private DoctorDetailService doctorDetailService;
+
 	@Autowired
 	private ScheduleTemplateService scheduleTemplateService;
 
-	/**
-	 * 获取医生列表
-	 * 根据子科室id查询
-	 *
-	 * @return
-	 */
-	@GetMapping("/findDocList")
-	public Result getList(@RequestParam("subDepartmentId") Long subDepartmentId) {
-		return Result.ok(doctorDetailService.findDocList(subDepartmentId));
+	@GetMapping("/findByPage")
+	public Result<IPage<ScheduleTemplate>> findByPage(
+			@RequestParam(value = "pageNum", defaultValue = "1") Integer pageNum,
+			@RequestParam(value = "pageSize", defaultValue = "10") Integer pageSize,
+			@RequestParam(value = "doctorId", required = false) Long doctorId) {
+		IPage<ScheduleTemplate> page = new Page<>(pageNum, pageSize);
+		return Result.ok(scheduleTemplateService.findByPage(page, doctorId));
 	}
 
-	/**
-	 * 获取排班模板列表
-	 * 根据医生id查询模板记录
-	 *
-	 * @return
-	 */
-	@GetMapping("/findTemplateByPage")
-	public Result<IPage<ScheduleTemplate>> findTemplateByPage(@RequestParam(value = "pageNum",defaultValue = "1") Integer pageNum,
-															  @RequestParam(value = "pageSize",defaultValue = "10") Integer pageSize,
-															  @RequestParam(value = "doctorId",required = false) Long doctorId) {
-		Page page = new Page<>(pageNum, pageSize);
-		IPage<ScheduleTemplate> scheduleTemplatePage = scheduleTemplateService.findByPage(page,doctorId);
-		return Result.ok(scheduleTemplatePage);
-	}
-
-	/**
-	 * 添加排班模板
-	 * @param scheduleTemplate
-	 * @return
-	 */
 	@PostMapping("/add")
 	public Result add(@RequestBody ScheduleTemplate scheduleTemplate) {
-		if (scheduleTemplate== null||scheduleTemplate.getDoctorId()==null||scheduleTemplate.getWeekDay()==null||scheduleTemplate.getMorningLimit()==null||scheduleTemplate.getAfternoonLimit()==null||scheduleTemplate.getIsActive()==null) {
+		validateTemplate(scheduleTemplate, null);
+		scheduleTemplateService.save(scheduleTemplate);
+		return Result.ok();
+	}
+
+	@PostMapping("/update")
+	public Result update(@RequestBody ScheduleTemplate scheduleTemplate) {
+		if (scheduleTemplate == null || scheduleTemplate.getId() == null) {
 			throw new MyRuntimeException(ResultCodeEnum.PARAM_ERROR);
 		}
-		return Result.ok(scheduleTemplateService.save(scheduleTemplate));
-	}
-
-	/**
-	 * 修改模板的状态
-	 * 需要同步schedule表的状态
-	 *
-	 * @return
-	 */
-	@PostMapping("/modify")
-	public Result modify(@RequestParam("scheduleTemplateId")Long scheduleTemplateId,@RequestParam("isActive") Integer isActive) {
-		scheduleTemplateService.modifyStatus(scheduleTemplateId,isActive);
+		validateTemplate(scheduleTemplate, scheduleTemplate.getId());
+		scheduleTemplateService.updateById(scheduleTemplate);
 		return Result.ok();
 	}
 
-	/**
-	 * 删除排班模板
-	 * 需要同步schedule表的状态
-	 * 还需要处理对应预约表
-	 * 支付记录表
-	 * @param id
-	 * @return
-	 */
 	@GetMapping("/remove")
-	public Result remove(@RequestParam("scheduleTemplateId") Long id) {
-		scheduleTemplateService.removeTemplate(id);
+	public Result remove(@RequestParam("templateId") Long templateId) {
+		scheduleTemplateService.removeById(templateId);
 		return Result.ok();
+	}
+
+	private void validateTemplate(ScheduleTemplate scheduleTemplate, Long selfId) {
+		if (scheduleTemplate == null || scheduleTemplate.getDoctorId() == null || scheduleTemplate.getDoctorId() <= 0) {
+			throw new MyRuntimeException(ResultCodeEnum.PARAM_ERROR);
+		}
+		Integer weekDay = scheduleTemplate.getWeekDay();
+		if (weekDay == null || weekDay < 1 || weekDay > 7) {
+			throw new MyRuntimeException(ResultCodeEnum.PARAM_ERROR);
+		}
+
+		Integer morningLimit = scheduleTemplate.getMorningLimit() == null ? 0 : scheduleTemplate.getMorningLimit();
+		Integer afternoonLimit = scheduleTemplate.getAfternoonLimit() == null ? 0 : scheduleTemplate.getAfternoonLimit();
+		if (morningLimit < 0 || afternoonLimit < 0 || (morningLimit == 0 && afternoonLimit == 0)) {
+			throw new MyRuntimeException(ResultCodeEnum.PARAM_ERROR);
+		}
+
+		scheduleTemplate.setMorningLimit(morningLimit);
+		scheduleTemplate.setAfternoonLimit(afternoonLimit);
+		scheduleTemplate.setIsActive(scheduleTemplate.getIsActive() == null ? 1 : scheduleTemplate.getIsActive());
+
+		if (scheduleTemplate.getIsActive() != 1) {
+			return;
+		}
+
+		LambdaQueryWrapper<ScheduleTemplate> queryWrapper = new LambdaQueryWrapper<>();
+		queryWrapper.eq(ScheduleTemplate::getDoctorId, scheduleTemplate.getDoctorId())
+				.eq(ScheduleTemplate::getWeekDay, weekDay)
+				.eq(ScheduleTemplate::getIsActive, 1);
+		if (selfId != null) {
+			queryWrapper.ne(ScheduleTemplate::getId, selfId);
+		}
+
+		if (scheduleTemplateService.count(queryWrapper) > 0) {
+			throw new AppointmentException(ResultCodeEnum.REPEAT_SUBMIT.getCode(), "同一医生同一星期仅允许一个启用模板");
+		}
 	}
 }

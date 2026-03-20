@@ -198,7 +198,7 @@
     <!-- AI 服务不可用 -->
     <el-dialog
       v-model="aiUnavailableDialogVisible"
-      title="AI 服务不可用：模型 & 价格"
+      title="AI 服务不可用"
       width="720px"
     >
       <pre class="ai-unavailable-pre">{{ aiUnavailableText }}</pre>
@@ -307,7 +307,7 @@ import {
   endConsultation
 } from '../../api/chat';
 import { getDoctorAssist } from '../../api/ai';
-import { addMedicalRecord, getAllDrugs, addPrescription, getAllRegistrationInfoList, getRegistrationList, getRegistrationById, changeStatusToSuspended, changeStatusToInProgress, changeStatusToCompleted } from '../../api/doctor';
+import { addMedicalRecord, getAllDrugs, addPrescription, getAllRegistrationInfoList, getRegistrationList, getRegistrationById, changeStatusToSuspended, changeStatusToInProgress } from '../../api/doctor';
 
 const router = useRouter();
 const route = useRoute();
@@ -332,31 +332,27 @@ const aiLoading = ref(false);
 const aiUnavailableDialogVisible = ref(false);
 const aiUnavailableText = ref('');
 
-const AI_UNAVAILABLE_FALLBACK = `AI 服务不可用：模型 & 价格
+const AI_UNAVAILABLE_FALLBACK = `AI 辅助暂时不可用。
 
-模型 & 价格
-下表所列模型价格以“百万 tokens”为单位。Token 是模型用来表示自然语言文本的的最小单位，可以是一个词、一个数字或一个标点符号等。我们将根据模型输入和输出的总 token 数进行计量计费。
+请检查：
+- 后端是否配置了 DeepSeek Key
+- AI 服务是否可访问
+- 当前请求是否触发限流
 
-模型细节
-模型\tdeepseek-chat\tdeepseek-reasoner\tdeepseek-reasoner(1)
-BASE URL\thttps://api.deepseek.com\thttps://api.deepseek.com/\tv3.2_speciale_expires_on_20251215
-模型版本\tDeepSeek-V3.2（非思考模式）\tDeepSeek-V3.2（思考模式）\tDeepSeek-V3.2-Speciale（只支持思考模式）
-上下文长度\t128K
-输出长度\t默认 4K，最大 8K\t默认 32K，最大 64K\t默认 128K，最大 128K
-功能\tJson Output\t支持\t支持\t不支持
-\tTool Calls\t支持\t支持\t不支持
-\t对话前缀续写（Beta）\t支持\t支持\t不支持
-\tFIM 补全（Beta）\t支持\t不支持\t不支持
-价格\t百万tokens输入（缓存命中）\t0.2元
-\t百万tokens输入（缓存未命中）\t2元
-\t百万tokens输出\t3元
+AI 关闭不会影响问诊、病历和处方主流程。`;
 
-(1) 用户可以通过设置 base_url="https://api.deepseek.com/v3.2_speciale_expires_on_20251215" 访问 DeepSeek-V3.2-Speciale 模型。该模型只支持思考模式，支持时间截止至北京时间 2025-12-15 23:59。
-
-扣费规则
-扣减费用 = token 消耗量 × 模型单价，对应的费用将直接从充值余额或赠送余额中进行扣减。当充值余额与赠送余额同时存在时，优先扣减赠送余额。
-
-产品价格可能发生变动，DeepSeek 保留修改价格的权利。请您依据实际用量按需充值，定期查看此页面以获知最新价格信息。`;
+const normalizeList = (payload) => {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (payload && Array.isArray(payload.records)) {
+    return payload.records;
+  }
+  if (payload && Array.isArray(payload.list)) {
+    return payload.list;
+  }
+  return [];
+};
 
 // 表单引用
 // 表单引用
@@ -490,7 +486,11 @@ async function fetchConsultationInfo() {
 
       // 获取患者ID - 从问诊记录中获取
       let patientId = null;
-      let patientName = '张三';
+      let patientName = '';
+      let patientPhone = '';
+      let patientGender = '';
+      let patientAge = null;
+      let doctorName = '';
       
       // 使用挂号ID直接查询单条挂号信息，确保拿到 RegistrationInfo.patientId
       if (roomInfo.registrationId || roomInfo.registration_id) {
@@ -499,27 +499,44 @@ async function fetchConsultationInfo() {
           const regResp = await getRegistrationById(regId);
           if (regResp.code === 200 && regResp.data) {
             patientId = regResp.data.patientId;
-            patientName = regResp.data.patientName || '张三';
+            patientName = regResp.data.patientName || patientName;
+            patientPhone = regResp.data.patientPhone || patientPhone;
+            patientGender = regResp.data.patientGender || patientGender;
+            patientAge = regResp.data.patientAge ?? patientAge;
+            doctorName = regResp.data.doctorName || doctorName;
             console.log('✅ 通过getRegistrationById获取到患者信息:', { patientId, patientName });
-          } else {
-            // 回退：用全部/待处理列表匹配，然后只取 RegistrationInfo.patientId
+          }
+
+          const needsFallback = !patientName || !patientPhone || !patientGender || patientAge == null;
+          if (needsFallback) {
+            // 回退：用全部/待处理列表匹配，补全患者信息
             const allConsultationsResponse = await getAllRegistrationInfoList();
             if (allConsultationsResponse.code === 200 && allConsultationsResponse.data) {
-              const rec = allConsultationsResponse.data.find(item => item.id === regId);
+              const allList = normalizeList(allConsultationsResponse.data);
+              const rec = allList.find(item => item.id === regId);
               if (rec) {
-                patientId = rec.patientId;
-                patientName = rec.patientName || '张三';
-                console.log('✅ 回退-从全部问诊记录获取patientId:', { patientId, patientName });
+                patientId = patientId || rec.patientId;
+                patientName = patientName || rec.patientName;
+                patientPhone = patientPhone || rec.patientPhone;
+                patientGender = patientGender || rec.patientGender;
+                patientAge = patientAge ?? rec.patientAge;
+                doctorName = doctorName || rec.doctorName;
+                console.log('✅ 回退-从全部问诊记录补全患者信息:', { patientId, patientName });
               }
             }
-            if (!patientId) {
+            if (!patientId || !patientName) {
               const pendingResp = await getRegistrationList();
               if (pendingResp.code === 200 && pendingResp.data) {
-                const rec = pendingResp.data.find(item => item.id === regId);
+                const pendingList = normalizeList(pendingResp.data);
+                const rec = pendingList.find(item => item.id === regId);
                 if (rec) {
-                  patientId = rec.patientId;
-                  patientName = rec.patientName || '张三';
-                  console.log('✅ 回退-从待处理问诊记录获取patientId:', { patientId, patientName });
+                  patientId = patientId || rec.patientId;
+                  patientName = patientName || rec.patientName;
+                  patientPhone = patientPhone || rec.patientPhone;
+                  patientGender = patientGender || rec.patientGender;
+                  patientAge = patientAge ?? rec.patientAge;
+                  doctorName = doctorName || rec.doctorName;
+                  console.log('✅ 回退-从待处理问诊记录补全患者信息:', { patientId, patientName });
                 }
               }
             }
@@ -534,13 +551,14 @@ async function fetchConsultationInfo() {
         id: roomInfo.registrationId || roomInfo.registration_id, // 预约ID - 兼容两种字段名
         roomId: roomInfo.id, // 房间ID
         doctorId: roomInfo.doctorId || roomInfo.doctor_id || 131,
-        doctorName: roomInfo.doctorName || roomInfo.doctor_name || '李医生', // 使用真实医生姓名
+        doctorName: doctorName || roomInfo.doctorName || roomInfo.doctor_name || userStore.userInfo?.username || '医生',
         // 仅使用 registrationInfo.patientId（patient_attendant.id），不要回退到 roomInfo 中的系统用户ID
         patientId: patientId || null,
-        patientName: patientName || roomInfo.patientName || roomInfo.patient_name || '张三',
+        patientName: patientName || roomInfo.patientName || roomInfo.patient_name || '未知患者',
         patientAvatar: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGNUY1RjUiLz4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDEyQzE0LjIwOTEgMTIgMTYgMTAuMjA5MSAxNiA4QzE2IDUuMzAwODYgMTQuMjA5MSA0IDEyIDRDOS43OTA4NiA0IDggNS43OTA4NiA4IDhDOCAxMC4yMDkxIDkuNzkwODYgMTIgMTJaIiBmaWxsPSIjOTk5OTk5Ii8+CjxwYXRoIGQ9Ik0xMiAxNEM5LjMzIDEzLjk5IDcuMDEgMTUuNjIgNiAxOEMxMC4wMSAyMCAxMy45OSAyMCAxOCAxOEMxNi45OSAxNS42MiAxNC42NyAxMy45OSAxMiAxNFoiIGZpbGw9IiM5OTk5OTkiLz4KPC9zdmc+Cjwvc3ZnPgo8L3N2Zz4K',
-        patientGender: '男',
-        patientAge: 35,
+        patientPhone: patientPhone || '',
+        patientGender: patientGender || '未知',
+        patientAge: patientAge ?? null,
         type: '图文问诊'
       };
 
@@ -710,16 +728,23 @@ const loadChatHistory = async () => {
 
     if (response.code === 200 && response.data && Array.isArray(response.data)) {
       // 映射消息数据
-      messages.value = response.data.map(msg => ({
-        id: msg.id,
-        sender: msg.sender_type === 2 ? 'doctor' : 'patient',
-        senderName: msg.sender_type === 2 ? (consultation.value.doctorName || '李医生') : consultation.value.patientName,
-        avatar: msg.sender_type === 2 ? 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiM0MDlFRkYiLz4KPHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4PSI2IiB5PSI2Ij4KPHBhdGggZD0iTTEwIDEwQzExLjY1NjkgMTAgMTMgOC42NTY4NSAxMyA3QzEzIDUuMzQzMTUgMTEuNjU2OSA0IDEwIDRDOC4zNDMxNSA0IDcgNS4zNDMxNSA3IDdDNyA4LjY1boro5IDguMzQzMTUgMTAgMTBaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTAgMTJDNy43NzUgMTEuOTkgNS44NDI1IDEzLjAxNSA1IDE1QzguMzQgMTYuNSAxMS42NiAxNi41IDE1IDE1QzE0LjE1NzUgMTMuMDE1IDEyLjIyNSAxMS45OSAxMCAxMloiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo8L3N2Zz4K' : consultation.value.patientAvatar,
-        type: msg.message_type === 1 ? 'text' : 'image',
-        content: msg.content,
-        time: new Date(msg.create_time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-        timestamp: new Date(msg.create_time)
-      }));
+      messages.value = response.data.map(msg => {
+        const senderType = msg.senderType ?? msg.sender_type;
+        const messageType = msg.messageType ?? msg.message_type;
+        const rawCreateTime = msg.createTime ?? msg.create_time;
+        const parsedTime = rawCreateTime ? new Date(rawCreateTime) : new Date();
+
+        return {
+          id: msg.id,
+          sender: senderType === 2 ? 'doctor' : 'patient',
+          senderName: senderType === 2 ? (consultation.value.doctorName || '李医生') : consultation.value.patientName,
+          avatar: senderType === 2 ? 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiM0MDlFRkYiLz4KPHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4PSI2IiB5PSI2Ij4KPHBhdGggZD0iTTEwIDEwQzExLjY1NjkgMTAgMTMgOC42NTY4NSAxMyA3QzEzIDUuMzQzMTUgMTEuNjU2OSA0IDEwIDRDOC4zNDMxNSA0IDcgNS43NDMxNSA3IDdDNyA4LjY1Njg1IDguMzQzMTUgMTAgMTAgMTBaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTAgMTJDNy43NzUgMTEuOTkgNS44NDI1IDEzLjAxNSA1IDE1QzguMzQgMTYuNSAxMS42NiAxNi41IDE1IDE1QzE0LjE1NzUgMTMuMDE1IDEyLjIyNSAxMS45OSAxMCAxMloiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo8L3N2Zz4K' : consultation.value.patientAvatar,
+          type: messageType === 1 ? 'text' : 'image',
+          content: msg.content,
+          time: parsedTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: parsedTime
+        };
+      });
 
       console.log('✅ 医生端成功加载聊天记录，消息数量:', messages.value.length);
       console.log('历史消息详情:', messages.value);
@@ -1355,8 +1380,8 @@ async function submitRecord() {
     if (valid) {
       try {
         // 保存就诊记录到本地状态，等待结束问诊时一起提交
-        console.log('就诊记录已保存到本地:', recordForm.value);
-        ElMessage.success('就诊记录已保存');
+        console.log('就诊记录已暂存到本地，结束问诊时提交:', recordForm.value);
+        ElMessage.success('就诊记录已暂存，结束问诊时提交');
         recordDialogVisible.value = false;
         
         // 不重置表单，保持数据用于结束问诊时提交
@@ -1376,8 +1401,8 @@ async function submitPrescription() {
     if (valid) {
       try {
         // 保存处方到本地状态，等待结束问诊时一起提交
-        console.log('处方已保存到本地:', prescriptionForm.value);
-        ElMessage.success('处方已保存');
+        console.log('处方已暂存到本地，结束问诊时提交:', prescriptionForm.value);
+        ElMessage.success('处方已暂存，结束问诊时提交');
         prescriptionDialogVisible.value = false;
         
         // 不重置表单，保持数据用于结束问诊时提交
@@ -1510,116 +1535,89 @@ async function confirmFinishConsultation() {
     }
 
     // 检查是否有就诊记录描述
-    const doctorDescription = recordForm.value.description || '';
+    const doctorDescription = (recordForm.value.description || '').trim();
+    const medicinesList = (prescriptionForm.value.medicines || [])
+      .filter(medicine => medicine.drugId && medicine.drugId !== '')
+      .map(medicine => {
+        const drugId = parseInt(medicine.drugId);
+        const drugQuantity = parseInt(medicine.quantity);
+
+        if (isNaN(drugId) || isNaN(drugQuantity)) {
+          throw new Error(`药品数据无效: drugId=${medicine.drugId}, quantity=${medicine.quantity}`);
+        }
+
+        return {
+          drugId,
+          drugQuantity
+        };
+      });
 
     // 检查是否有处方内容
-    const hasPrescription = prescriptionForm.value.medicines && 
-                           prescriptionForm.value.medicines.length > 0 && 
-                           prescriptionForm.value.medicines.some(medicine => medicine.drugId && medicine.drugId !== '');
+    const hasPrescription = medicinesList.length > 0;
+    const shouldCreateMedicalRecord = Boolean(doctorDescription) || hasPrescription;
 
     // 确定处方状态：如果处方内容为空，状态为2；处方内容不为空，状态为0
     const isPurchasable = hasPrescription ? 0 : 2;
 
-    // 构建就诊记录数据
-    const medicalRecordData = {
-      doctorId: doctorId,
-      patientId: patientId,
-      doctorDescription: doctorDescription,
-      isPurchasable: isPurchasable
-    };
+    let medicalRecordId = null;
+    if (shouldCreateMedicalRecord) {
+      // 构建就诊记录数据
+      const medicalRecordData = {
+        doctorId: doctorId,
+        patientId: patientId,
+        doctorDescription: doctorDescription,
+        isPurchasable: isPurchasable
+      };
 
-    console.log('准备提交就诊记录:', medicalRecordData);
-    console.log('🔍 数据类型检查:');
-    console.log('  - doctorId:', medicalRecordData.doctorId, '类型:', typeof medicalRecordData.doctorId);
-    console.log('  - patientId:', medicalRecordData.patientId, '类型:', typeof medicalRecordData.patientId);
-    console.log('  - doctorDescription:', medicalRecordData.doctorDescription, '类型:', typeof medicalRecordData.doctorDescription);
-    console.log('  - isPurchasable:', medicalRecordData.isPurchasable, '类型:', typeof medicalRecordData.isPurchasable);
+      console.log('准备提交就诊记录:', medicalRecordData);
+      console.log('🔍 数据类型检查:');
+      console.log('  - doctorId:', medicalRecordData.doctorId, '类型:', typeof medicalRecordData.doctorId);
+      console.log('  - patientId:', medicalRecordData.patientId, '类型:', typeof medicalRecordData.patientId);
+      console.log('  - doctorDescription:', medicalRecordData.doctorDescription, '类型:', typeof medicalRecordData.doctorDescription);
+      console.log('  - isPurchasable:', medicalRecordData.isPurchasable, '类型:', typeof medicalRecordData.isPurchasable);
 
-    // 调用就诊记录API
-    const recordResponse = await addMedicalRecord(medicalRecordData);
-    
-    if (recordResponse.code === 200) {
-      ElMessage.success('就诊记录已保存');
-      
+      // 调用就诊记录API
+      const recordResponse = await addMedicalRecord(medicalRecordData);
+
+      if (recordResponse.code !== 200) {
+        console.error('保存就诊记录失败:', recordResponse);
+        ElMessage.warning('就诊记录保存失败，请重试后再结束问诊');
+        return;
+      }
+
+      medicalRecordId = recordResponse.data;
+      ElMessage.success('就诊记录已提交');
+
       // 如果有处方内容，调用处方API
       if (hasPrescription) {
         try {
-          // 构建处方数据 - 确保格式正确
-          let medicinesList = prescriptionForm.value.medicines
-            .filter(medicine => medicine.drugId && medicine.drugId !== '')
-            .map(medicine => {
-              // 确保数据类型正确
-              const drugId = parseInt(medicine.drugId);
-              const drugQuantity = parseInt(medicine.quantity);
-              
-              // 验证数据有效性
-              if (isNaN(drugId) || isNaN(drugQuantity)) {
-                throw new Error(`药品数据无效: drugId=${medicine.drugId}, quantity=${medicine.quantity}`);
-              }
-              
-              return {
-                drugId: drugId,
-                drugQuantity: drugQuantity
-              };
-            });
+          console.log('准备提交处方:');
+          console.log('🔍 处方数据格式检查:');
+          console.log('  - medicalRecordId:', medicalRecordId, '类型:', typeof medicalRecordId);
+          console.log('  - medicines:', medicinesList, '类型:', Array.isArray(medicinesList) ? 'Array' : typeof medicinesList);
+          console.log('  - medicines长度:', medicinesList.length);
+          console.log('  - medicines内容:', JSON.stringify(medicinesList));
 
-          // 验证是否有有效的药品数据
-          if (medicinesList.length === 0) {
-            console.warn('没有有效的药品数据，跳过处方提交');
-            ElMessage.warning('处方数据无效，但就诊记录已保存');
+          const prescriptionResponse = await addPrescription(medicinesList, medicalRecordId);
+
+          if (prescriptionResponse.code === 200) {
+            ElMessage.success('处方已提交');
           } else {
-            console.log('准备提交处方:');
-            console.log('🔍 处方数据格式检查:');
-            console.log('  - medicalRecordId:', recordResponse.data, '类型:', typeof recordResponse.data);
-            console.log('  - medicines:', medicinesList, '类型:', Array.isArray(medicinesList) ? 'Array' : typeof medicinesList);
-            console.log('  - medicines长度:', medicinesList.length);
-            console.log('  - medicines内容:', JSON.stringify(medicinesList));
-            
-            // 确保medicines是数组格式
-            if (!Array.isArray(medicinesList)) {
-              console.error('medicines不是数组格式，强制转换为数组');
-              medicinesList = [medicinesList];
-            }
-            
-            // 调用处方API - 修改为新的函数签名
-            const prescriptionResponse = await addPrescription(medicinesList, recordResponse.data);
-            
-            if (prescriptionResponse.code === 200) {
-              ElMessage.success('处方已保存');
-            } else {
-              console.error('保存处方失败:', prescriptionResponse);
-              ElMessage.warning('处方保存失败，但就诊记录已保存');
-            }
+            console.error('保存处方失败:', prescriptionResponse);
+            ElMessage.warning('处方保存失败，但就诊记录已提交');
           }
         } catch (error) {
           console.error('保存处方失败:', error);
-          ElMessage.warning('处方保存失败，但就诊记录已保存');
+          ElMessage.warning('处方保存失败，但就诊记录已提交');
         }
       }
     } else {
-      console.error('保存就诊记录失败:', recordResponse);
-      ElMessage.warning('就诊记录保存失败，但问诊已结束');
+      console.log('未填写就诊记录或处方，本次仅结束问诊');
     }
 
     // 结束问诊
     if (roomId.value) {
       await endConsultation(roomId.value);
-      await updateRoomStatus(roomId.value, 3);
-    }
-
-    // 调用后端接口，将状态设置为已完成
-    try {
-      const registrationId = consultation.value.id || route.params.id;
-      if (registrationId) {
-        console.log('🔌 调用changeStatusToCompleted，registrationId:', registrationId);
-        await changeStatusToCompleted(registrationId);
-        console.log('✅ 状态已更新为已完成');
-      } else {
-        console.error('❌ 无法获取registrationId');
-      }
-    } catch (error) {
-      console.error('❌ 更新状态为已完成失败:', error);
-      ElMessage.error('更新状态失败');
     }
 
     ElMessage.success('问诊已结束');

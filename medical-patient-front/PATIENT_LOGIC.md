@@ -14,7 +14,7 @@
 
 ### 1. WebSocket服务优化 (`src/utils/websocket.js`)
 
-- 适配新的后端WebSocket路径：`/common/ws/chat/{roomId}`
+- 适配新的后端WebSocket路径：`/netty/ws/chat/{roomId}`
 - 优化消息格式以匹配后端期望的格式
 - 增强患者端长连接逻辑
 - 新增用户ID解析功能
@@ -85,8 +85,8 @@
 ## 技术实现
 
 ### WebSocket连接
-- 聊天室连接：`ws://host/treat/common/ws/chat/{roomId}?token=xxx`
-- 患者端专用连接：`ws://host/treat/common/ws/chat/patient_{userId}?token=xxx`
+- 聊天室连接：`ws://host:9001/netty/ws/chat/{roomId}?token=xxx`
+- 患者端专用连接：`ws://host:9001/netty/ws/chat/patient_{userId}?token=xxx`
 
 ### API接口
 ```javascript

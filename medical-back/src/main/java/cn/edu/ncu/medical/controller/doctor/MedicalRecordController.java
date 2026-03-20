@@ -1,15 +1,12 @@
 package cn.edu.ncu.medical.controller.doctor;
 
 import cn.edu.ncu.medical.entity.MedicalRecord;
-import cn.edu.ncu.medical.entity.SystemUser;
 import cn.edu.ncu.medical.entity.dto.MedicalRecordCondition;
 import cn.edu.ncu.medical.entity.vo.MedicalRecordInfo;
 import cn.edu.ncu.medical.entity.vo.PrescriptionInfo;
-import cn.edu.ncu.medical.inteceptor.login.LoginUser;
 import cn.edu.ncu.medical.inteceptor.login.LoginUserHolder;
 import cn.edu.ncu.medical.result.Result;
 import cn.edu.ncu.medical.service.*;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -31,9 +28,9 @@ public class MedicalRecordController {
     public Result addMedicalRecord(@RequestBody MedicalRecord medicalRecord) {
         // 初始状态设为2（未开具）
         medicalRecord.setIsPurchasable(2);
-        Long doctorId = doctorDetailService.getDoctorIdByUserId(medicalRecord.getDoctorId());
+        Long userId = LoginUserHolder.getLoginUser().getUserId();
+        Long doctorId = doctorDetailService.getDoctorIdByUserId(userId);
         medicalRecord.setDoctorId(doctorId);
-        medicalRecord.setPatientId(medicalRecord.getPatientId());
         Date date = new Date();
         medicalRecord.setCreateTime(date);
         medicalRecordService.save(medicalRecord);

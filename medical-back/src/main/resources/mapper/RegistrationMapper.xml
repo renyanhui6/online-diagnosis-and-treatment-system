@@ -21,26 +21,46 @@
         is_deleted
     </sql>
 
+    <sql id="PatientInfoColumns">
+        p.phone AS patientPhone,
+        CASE
+            WHEN p.gender = 1 THEN '男'
+            WHEN p.gender = 2 THEN '女'
+            ELSE '未知'
+        END AS patientGender,
+        CASE
+            WHEN p.id_card IS NULL OR p.id_card = '' THEN NULL
+            WHEN LENGTH(p.id_card) = 18 THEN YEAR(CURDATE()) - CAST(SUBSTRING(p.id_card, 7, 4) AS UNSIGNED)
+            WHEN LENGTH(p.id_card) = 15 THEN YEAR(CURDATE()) - CAST(CONCAT('19', SUBSTRING(p.id_card, 7, 2)) AS UNSIGNED)
+            ELSE NULL
+        END AS patientAge,
+        p.system_user_id AS patientUserId
+    </sql>
+
 
 <!--    用户根据userID查询挂号-->
     <select id="selectRegistrationInfoList" resultType="cn.edu.ncu.medical.entity.vo.RegistrationInfo">
         SELECT
         r.id AS id,
-        p.real_name AS patientName,
-        s.department_name AS departmentName,
-        s.schedule_date AS scheduleDate,
-        s.doctor_name AS doctorName,
+        r.patient_id AS patientId,
+        r.registration_status AS registrationStatus,
         r.create_time AS createTime,
+        p.real_name AS patientName,
+        <include refid="PatientInfoColumns" />,
+        COALESCE(dept.department_name, s.department_name) AS departmentName,
+        s.schedule_date AS scheduleDate,
+        COALESCE(d.real_name, s.doctor_name) AS doctorName,
         CASE
-        WHEN s.is_morning = 1 THEN '上午'
-        WHEN s.is_afternoon = 1 THEN '下午'
-        END AS timePeriod,
-        r.registration_status AS registrationStatus
+            WHEN s.is_morning = 1 THEN '上午'
+            WHEN s.is_afternoon = 1 THEN '下午'
+        END AS timePeriod
         FROM registration r
         INNER JOIN patient_attendant p ON r.patient_id = p.id
         INNER JOIN schedule s ON r.schedule_id = s.id
+        LEFT JOIN doctor_detail d ON r.doctor_id = d.id
+        LEFT JOIN sub_department dept ON d.sub_department_id = dept.id
         WHERE p.system_user_id = #{userId} and r.is_deleted = 0
-          and p.is_deleted =0 and s.is_deleted = 0
+          and p.is_deleted =0
 
         <if test="registrationCondition != null">
             <if test="registrationCondition.startDate != null">
@@ -61,16 +81,24 @@
     <!--    医生根据doctorID和scheduleId查询当天挂号-->
     <select id="selectRegistrationInfoBySchedule" resultType="cn.edu.ncu.medical.entity.vo.RegistrationInfo">
         SELECT
-        r.*,
-        p.real_name AS patient_name,
-        d.real_name AS doctor_name,
-        dept.department_name,
-        p.system_user_id AS patient_id
+        r.id AS id,
+        r.patient_id AS patientId,
+        r.registration_status AS registrationStatus,
+        r.create_time AS createTime,
+        p.real_name AS patientName,
+        <include refid="PatientInfoColumns" />,
+        d.real_name AS doctorName,
+        dept.department_name AS departmentName,
+        s.schedule_date AS scheduleDate,
+        CASE
+            WHEN s.is_morning = 1 THEN '上午'
+            WHEN s.is_afternoon = 1 THEN '下午'
+        END AS timePeriod
         FROM registration r
         JOIN patient_attendant p ON r.patient_id = p.id
         JOIN schedule s ON r.schedule_id = s.id
         JOIN doctor_detail d ON s.doctor_id = d.id
-        JOIN department dept ON d.sub_department_id = dept.id
+        JOIN sub_department dept ON d.sub_department_id = dept.id
         where
             r.schedule_id = #{scheduleId}
         <if test="registrationCondition != null">
@@ -78,11 +106,11 @@
                 AND r.registration_status = #{registrationCondition.registrationStatus}
             </if>
             <if test="registrationCondition.registrationStatus==null">
-                AND r.registration_status IN (2,3,5,6)
+                AND r.registration_status IN (2,3,5,6,7)
             </if>
         </if>
         <if test="registrationCondition==null">
-            AND r.registration_status IN (2,3,5,6)
+            AND r.registration_status IN (2,3,5,6,7)
         </if>
         AND r.is_deleted = 0 and p.is_deleted = 0 and s.is_deleted = 0 and d.is_deleted = 0
         ORDER BY r.id ASC
@@ -90,24 +118,28 @@
 
     <!--    医生根据doctorID查询所有挂号2-6-->
     <select id="selectAllRegistrationInfo" resultType="cn.edu.ncu.medical.entity.vo.RegistrationInfo">
-        SELECT r.*, p.real_name AS patientName,
+        SELECT r.id AS id,
+               r.patient_id AS patientId,
+               r.registration_status AS registrationStatus,
+               r.create_time AS createTime,
+               p.real_name AS patientName,
+               <include refid="PatientInfoColumns" />,
                d.real_name AS doctorName,
                dept.department_name AS departmentName,
                s.schedule_date AS scheduleDate,
                case
-               when s.is_morning = 1 then '上午'
-               when s.is_afternoon = 1 then '下午'
+                   when s.is_morning = 1 then '上午'
+                   when s.is_afternoon = 1 then '下午'
                end AS timePeriod
         FROM registration r
                  JOIN patient_attendant p ON r.patient_id = p.id
                  JOIN doctor_detail d ON r.doctor_id = d.id
-                 JOIN department dept ON d.sub_department_id = dept.id
+                 JOIN sub_department dept ON d.sub_department_id = dept.id
                  JOIN schedule s ON r.schedule_id = s.id
         WHERE r.doctor_id = #{doctorId}
           AND r.is_deleted = 0
           AND p.is_deleted = 0
           AND d.is_deleted = 0
-          AND s.is_deleted = 0
         <if test="registrationCondition != null">
             <if test="registrationCondition.startDate != null">
                 AND s.schedule_date &gt;= #{registrationCondition.startDate}
@@ -119,12 +151,38 @@
                 AND r.registration_status = #{registrationCondition.registrationStatus}
             </if>
             <if test="registrationCondition.registrationStatus==null">
-                AND r.registration_status IN (2,3,4,5,6)
+                AND r.registration_status IN (2,3,4,5,6,7,8)
             </if>
         </if>
         <if test="registrationCondition==null">
-            AND r.registration_status IN (2,3,4,5,6)
+            AND r.registration_status IN (2,3,4,5,6,7,8)
         </if>
+    </select>
+
+    <!--    根据挂号ID查询详细信息-->
+    <select id="selectRegistrationInfoById" resultType="cn.edu.ncu.medical.entity.vo.RegistrationInfo">
+        SELECT
+            r.id AS id,
+            r.patient_id AS patientId,
+            r.registration_status AS registrationStatus,
+            r.create_time AS createTime,
+            p.real_name AS patientName,
+            <include refid="PatientInfoColumns" />,
+            COALESCE(dept.department_name, s.department_name) AS departmentName,
+            COALESCE(d.real_name, s.doctor_name) AS doctorName,
+            s.schedule_date AS scheduleDate,
+            CASE
+                WHEN s.is_morning = 1 THEN '上午'
+                WHEN s.is_afternoon = 1 THEN '下午'
+            END AS timePeriod
+        FROM registration r
+                 JOIN patient_attendant p ON r.patient_id = p.id
+                 JOIN schedule s ON r.schedule_id = s.id
+                 LEFT JOIN doctor_detail d ON r.doctor_id = d.id
+                 LEFT JOIN sub_department dept ON d.sub_department_id = dept.id
+        WHERE r.id = #{registrationId}
+          AND r.is_deleted = 0
+          AND p.is_deleted = 0
     </select>
 
 </mapper>

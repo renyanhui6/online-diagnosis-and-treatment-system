@@ -41,6 +41,9 @@ public final class ScheduleTimePolicy {
 		if (date == null) {
 			throw new IllegalArgumentException("date is null");
 		}
+		if (date instanceof java.sql.Date sqlDate) {
+			return sqlDate.toLocalDate();
+		}
 		return date.toInstant().atZone(zoneId).toLocalDate();
 	}
 
@@ -96,4 +99,3 @@ public final class ScheduleTimePolicy {
 		return !now.isBefore(end);
 	}
 }
-

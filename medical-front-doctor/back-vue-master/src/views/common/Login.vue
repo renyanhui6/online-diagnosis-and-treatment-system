@@ -82,12 +82,22 @@
               登录
             </el-button>
           </el-form-item>
+
+          <el-form-item v-if="showDevQuickLogin">
+            <el-button
+              plain
+              class="login-button"
+              :loading="loading"
+              @click="handleLocalLogin"
+            >
+              本地直连
+            </el-button>
+          </el-form-item>
         </el-form>
         
         <div class="login-tips">
-          <p>演示账号：</p>
-          <p>医生账号：doctor / 123456</p>
-          <p>管理员账号：admin / 123456</p>
+          <p v-if="showDevQuickLogin">本地开发环境可直接使用“本地直连”进入当前端。</p>
+          <p v-else>请使用数据库中的真实账号登录。</p>
         </div>
       </div>
     </div>
@@ -96,16 +106,18 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { User, Lock, Picture } from '@element-plus/icons-vue';
 import { useUserStore } from '@/stores/user';
-import { getCaptcha } from '@/api';
+import api, { getCaptcha } from '@/api';
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 const loginFormRef = ref(null);
 const loading = ref(false);
+const showDevQuickLogin = import.meta.env.DEV;
 
 const loginForm = reactive({
   username: '',
@@ -162,8 +174,19 @@ function refreshCaptcha() {
 
 // 组件挂载时获取验证码
 onMounted(() => {
+  syncLoginTypeFromRoute();
   fetchCaptcha();
 });
+
+function syncLoginTypeFromRoute() {
+  if (route.path.startsWith('/admin')) {
+    loginForm.type = 'admin';
+    return;
+  }
+  if (route.path.startsWith('/doctor')) {
+    loginForm.type = 'doctor';
+  }
+}
 
 function getRandomStyle() {
   const size = Math.floor(Math.random() * 100) + 50;
@@ -240,6 +263,52 @@ async function handleLogin() {
       loading.value = false;
     }
   });
+}
+
+function getRedirectTarget(role = loginForm.type) {
+  const redirect = router.currentRoute.value.query.redirect;
+  if (redirect) {
+    return decodeURIComponent(redirect);
+  }
+  return role === 'admin' ? '/admin' : '/doctor';
+}
+
+async function finalizeLoginSession(token, role, successMessage) {
+  userStore.token = token;
+  userStore.userRole = role;
+  localStorage.setItem('token', token);
+  localStorage.setItem('userRole', role);
+
+  await userStore.fetchUserInfo();
+  ElMessage.success(successMessage);
+
+  try {
+    await router.push(getRedirectTarget(role));
+  } catch (error) {
+    console.error('跳转失败:', error);
+    await router.push(role === 'admin' ? '/admin' : '/doctor');
+  }
+}
+
+async function handleLocalLogin() {
+  if (!showDevQuickLogin || loading.value) return;
+
+  loading.value = true;
+  try {
+    const response = await api.get('/front/loginAndOut/devToken', {
+      params: { type: 2 }
+    });
+    if (response.code !== 200 || !response.data) {
+      ElMessage.error(response.message || '获取本地登录令牌失败');
+      return;
+    }
+    await finalizeLoginSession(response.data, loginForm.type, '已使用本地账号登录');
+  } catch (error) {
+    console.error('本地直连失败:', error);
+    ElMessage.error(error.response?.data?.message || error.message || '本地直连失败');
+  } finally {
+    loading.value = false;
+  }
 }
 </script>
 

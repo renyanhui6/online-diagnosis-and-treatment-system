@@ -18,6 +18,10 @@ public class RegistrationInfo {
     private Integer registrationStatus;
     private String patientName;
     private Long patientId;
+    private Long patientUserId;
+    private String patientPhone;
+    private String patientGender;
+    private Integer patientAge;
     @TableField(fill = FieldFill.INSERT)
     private Date createTime;
 

@@ -46,8 +46,8 @@ class WebSocketService {
 
     // 创建新的WebSocket连接 - 支持环境开关切换 Netty 路径
     const isHttps = window.location.protocol === 'https:'
-    const backendHost = import.meta.env.VITE_WS_BASE || (import.meta.env.DEV ? 'localhost:8080' : window.location.host)
-    const wsPath = import.meta.env.VITE_WS_PATH || '/treat/common/ws/chat'
+    const backendHost = import.meta.env.VITE_WS_BASE || (import.meta.env.DEV ? 'localhost:9001' : window.location.host)
+    const wsPath = import.meta.env.VITE_WS_PATH || '/netty/ws/chat'
     const wsUrl = `${isHttps ? 'wss' : 'ws'}://${backendHost}${wsPath}/${roomId}?token=${token}`
     console.log('WebSocket连接URL:', wsUrl)
     
@@ -212,8 +212,8 @@ class WebSocketService {
 
     // 创建新的WebSocket连接 - 患者端专用
     const isHttps = window.location.protocol === 'https:'
-    const backendHost = import.meta.env.VITE_WS_BASE || (import.meta.env.DEV ? 'localhost:8080' : window.location.host)
-    const wsPath = import.meta.env.VITE_WS_PATH || '/treat/common/ws/chat'
+    const backendHost = import.meta.env.VITE_WS_BASE || (import.meta.env.DEV ? 'localhost:9001' : window.location.host)
+    const wsPath = import.meta.env.VITE_WS_PATH || '/netty/ws/chat'
     
     // 患者端连接到个人通知频道
     const userId = this.getUserIdFromToken(token)

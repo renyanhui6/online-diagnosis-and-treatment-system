@@ -27,6 +27,18 @@
         select
         mr.id AS medicalRecordId,
         p.real_name AS patientName,
+        p.phone AS patientPhone,
+        CASE
+            WHEN p.gender = 1 THEN '男'
+            WHEN p.gender = 2 THEN '女'
+            ELSE '未知'
+        END AS patientGender,
+        CASE
+            WHEN p.id_card IS NULL OR p.id_card = '' THEN NULL
+            WHEN LENGTH(p.id_card) = 18 THEN YEAR(CURDATE()) - CAST(SUBSTRING(p.id_card, 7, 4) AS UNSIGNED)
+            WHEN LENGTH(p.id_card) = 15 THEN YEAR(CURDATE()) - CAST(CONCAT('19', SUBSTRING(p.id_card, 7, 2)) AS UNSIGNED)
+            ELSE NULL
+        END AS patientAge,
         d.real_name AS doctorName,
         mr.doctor_description AS doctorDescription,
         mr.is_purchasable AS isPurchasable,
@@ -65,6 +77,18 @@
         select
         mr.id AS medicalRecordId,
         p.real_name AS patientName,
+        p.phone AS patientPhone,
+        CASE
+            WHEN p.gender = 1 THEN '男'
+            WHEN p.gender = 2 THEN '女'
+            ELSE '未知'
+        END AS patientGender,
+        CASE
+            WHEN p.id_card IS NULL OR p.id_card = '' THEN NULL
+            WHEN LENGTH(p.id_card) = 18 THEN YEAR(CURDATE()) - CAST(SUBSTRING(p.id_card, 7, 4) AS UNSIGNED)
+            WHEN LENGTH(p.id_card) = 15 THEN YEAR(CURDATE()) - CAST(CONCAT('19', SUBSTRING(p.id_card, 7, 2)) AS UNSIGNED)
+            ELSE NULL
+        END AS patientAge,
         d.real_name AS doctorName,
         mr.doctor_description AS doctorDescription,
         mr.is_purchasable AS isPurchasable,

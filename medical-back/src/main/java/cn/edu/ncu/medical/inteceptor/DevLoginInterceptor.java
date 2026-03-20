@@ -2,6 +2,8 @@ package cn.edu.ncu.medical.inteceptor;
 
 import cn.edu.ncu.medical.inteceptor.login.LoginUser;
 import cn.edu.ncu.medical.inteceptor.login.LoginUserHolder;
+import cn.edu.ncu.medical.utils.JwtUtil;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,7 +26,7 @@ public class DevLoginInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        LoginUserHolder.setLoginUser(new LoginUser(devUserId, devUsername));
+        LoginUserHolder.setLoginUser(resolveLoginUser(request));
         return true;
     }
 
@@ -32,5 +34,21 @@ public class DevLoginInterceptor implements HandlerInterceptor {
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
         LoginUserHolder.clear();
     }
-}
 
+    private LoginUser resolveLoginUser(HttpServletRequest request) {
+        String token = request.getHeader("access-key");
+        if (token != null && !token.isBlank()) {
+            try {
+                Claims claims = JwtUtil.parseToken(token);
+                Long userId = claims.get("userId", Long.class);
+                String username = claims.get("username", String.class);
+                if (userId != null && username != null && !username.isBlank()) {
+                    return new LoginUser(userId, username);
+                }
+            } catch (Exception ignored) {
+                // local 模式下 token 仅作为优先上下文，解析失败时回退到默认用户
+            }
+        }
+        return new LoginUser(devUserId, devUsername);
+    }
+}

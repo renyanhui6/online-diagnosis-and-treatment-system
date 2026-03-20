@@ -25,6 +25,12 @@ public class Registration implements Serializable {
     private Long scheduleId;
 
     private Integer registrationStatus;
+
+    @TableField("person_key")
+    private String personKey;
+
+    @TableField("request_token")
+    private String requestToken;
     @TableField(fill = FieldFill.UPDATE)
     private Date updateTime;
     @TableLogic

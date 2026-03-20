@@ -25,9 +25,7 @@ const doctorRoutes = [
       },
       {
         path: 'appointments',
-        name: 'DoctorAppointments',
-        component: () => import('../views/doctor/Appointments.vue'),
-        meta: { title: '预约管理' }
+        redirect: '/doctor/consultations'
       },
       {
         path: 'consultations',
@@ -36,12 +34,6 @@ const doctorRoutes = [
         meta: { title: '在线问诊' }
       },
 
-      {
-        path: 'consultations/:id',
-        name: 'DoctorConsultationDetail',
-        component: () => import('../views/common/NotFound.vue'),
-        meta: { title: '问诊详情' }
-      },
       {
         path: 'chat/:id',
         name: 'DoctorChat',
@@ -55,22 +47,10 @@ const doctorRoutes = [
         meta: { title: '就诊记录管理' }
       },
       {
-        path: 'schedule',
-        name: 'DoctorSchedule',
-        component: () => import('../views/common/NotFound.vue'),
-        meta: { title: '工作安排' }
-      },
-      {
         path: 'profile',
         name: 'DoctorProfile',
         component: () => import('../views/doctor/Profile.vue'),
         meta: { title: '个人信息' }
-      },
-      {
-        path: 'settings',
-        name: 'DoctorSettings',
-        component: () => import('../views/common/NotFound.vue'),
-        meta: { title: '系统设置' }
       }
     ]
   }
@@ -96,12 +76,6 @@ const adminRoutes = [
         meta: { title: '仪表盘' }
       },
       {
-        path: 'statistics',
-        name: 'AdminStatistics',
-        component: () => import('../views/admin/Dashboard.vue'),
-        meta: { title: '统计报表' }
-      },
-      {
         path: 'doctors',
         name: 'AdminDoctors',
         component: () => import('../views/admin/Doctors.vue'),
@@ -124,6 +98,12 @@ const adminRoutes = [
         name: 'AdminPatients',
         component: () => import('../views/admin/Patients.vue'),
         meta: { title: '患者管理' }
+      },
+      {
+        path: 'schedule-templates',
+        name: 'AdminScheduleTemplates',
+        component: () => import('../views/admin/ScheduleTemplates.vue'),
+        meta: { title: '排班模板' }
       }
     ]
   }

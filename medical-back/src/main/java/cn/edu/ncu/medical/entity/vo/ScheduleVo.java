@@ -20,7 +20,7 @@ public class ScheduleVo {
 	private Long doctorId;
 
 	private String doctorName;
-	@JsonFormat(pattern = "yyyy-MM-dd")
+	@JsonFormat(pattern = "yyyy-MM-dd", timezone = "Asia/Shanghai")
 	private Date scheduleDate;
 	private BigDecimal price;
 	private Integer isMorning;

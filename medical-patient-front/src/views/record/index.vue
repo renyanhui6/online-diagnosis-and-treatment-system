@@ -38,7 +38,7 @@
                 </div>
                 <div class="record-item-status">
                   <el-tag :type="record.isPurchasable === 0 ? 'success' : 'info'" size="small">
-                    {{ record.isPurchasable === 0 ? '可购买药品' : '不可购买' }}
+                    {{ record.isPurchasable === 0 ? '已开具处方' : '无处方' }}
                   </el-tag>
                 </div>
               </div>
@@ -56,13 +56,6 @@
               
               <div class="record-item-footer">
                 <el-button type="primary" @click="viewRecordDetail(record)">查看详情</el-button>
-                <el-button 
-                  v-if="record.isPurchasable === 0" 
-                  type="success" 
-                  @click="purchaseMedicine(record)"
-                >
-                  购买药品
-                </el-button>
               </div>
             </el-card>
           </el-timeline-item>
@@ -91,9 +84,9 @@
           <el-descriptions-item label="就诊医生">{{ currentRecord.doctorName }}</el-descriptions-item>
           <el-descriptions-item label="记录编号">{{ currentRecord.medicalRecordId }}</el-descriptions-item>
           <el-descriptions-item label="创建时间">{{ formatDateTime(currentRecord.createTime) }}</el-descriptions-item>
-          <el-descriptions-item label="药品购买状态">
+          <el-descriptions-item label="处方状态">
             <el-tag :type="currentRecord.isPurchasable === 0 ? 'success' : 'info'">
-              {{ currentRecord.isPurchasable === 0 ? '可购买药品' : '不可购买' }}
+              {{ currentRecord.isPurchasable === 0 ? '已开具处方' : '无处方' }}
             </el-tag>
           </el-descriptions-item>
         </el-descriptions>
@@ -105,15 +98,28 @@
             {{ currentRecord.doctorDescription || '暂无诊断记录' }}
           </div>
         </div>
+
+        <template v-if="currentRecord.isPurchasable === 0">
+          <el-divider content-position="left">处方明细</el-divider>
+
+          <div v-if="prescriptionLoading" class="prescription-loading">
+            <el-skeleton :rows="3" animated />
+          </div>
+          <el-empty v-else-if="prescriptionList.length === 0" description="暂无处方明细" />
+          <el-table v-else :data="prescriptionList" border>
+            <el-table-column prop="drugName" label="药品名称" min-width="180" />
+            <el-table-column prop="drugQuantity" label="数量" width="100" />
+            <el-table-column prop="minimumSalesUnit" label="单位" width="100" />
+            <el-table-column prop="price" label="单价" width="120">
+              <template #default="{ row }">
+                {{ formatPrice(row.price) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="isPrescription" label="类型" width="120" />
+          </el-table>
+        </template>
         
         <div class="record-detail-actions">
-          <el-button 
-            v-if="currentRecord.isPurchasable === 0" 
-            type="success" 
-            @click="purchaseMedicine(currentRecord)"
-          >
-            购买药品
-          </el-button>
           <el-button type="primary" @click="recordDetailVisible = false">关闭</el-button>
         </div>
       </div>
@@ -125,7 +131,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getMedicalRecordList } from '../../api/record'
+import { getMedicalRecordList, getPrescriptionInfoByMedicalRecordId } from '../../api/record'
 import UserStorage from '../../utils/userStorage'
 
 const router = useRouter()
@@ -147,6 +153,8 @@ const loading = ref(false)
 // 就诊记录详情
 const currentRecord = ref(null)
 const recordDetailVisible = ref(false)
+const prescriptionList = ref([])
+const prescriptionLoading = ref(false)
 
 // 处理过滤条件变化
 const handleFilterChange = () => {
@@ -191,53 +199,38 @@ const formatDateTime = (dateString) => {
   return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
 }
 
-// 查看就诊记录详情
-const viewRecordDetail = (record) => {
-  currentRecord.value = record
-  recordDetailVisible.value = true
+const formatPrice = (price) => {
+  if (price === null || price === undefined || price === '') return '-'
+  return Number(price).toFixed(2)
 }
 
-// 导入接口函数
-import { createByPrescription } from '../../api/medicine'
-import { ElLoading } from 'element-plus'
+// 查看就诊记录详情
+const viewRecordDetail = async (record) => {
+  currentRecord.value = record
+  recordDetailVisible.value = true
+  prescriptionList.value = []
 
-// 创建订单ID
-const createdOrderId = ref(null)
+  if (record.isPurchasable !== 0 || !record.medicalRecordId) {
+    return
+  }
 
-// 购买药品（通过处方直接创建订单）
-const purchaseMedicine = async (record) => {
-  // 显示加载状态
-  const loading = ElLoading.service({
-    lock: true,
-    text: '正在创建订单...',
-    background: 'rgba(0, 0, 0, 0.7)'
-  })
-
+  prescriptionLoading.value = true
   try {
-    // 调用处方创建订单接口
-    const res = await createByPrescription(record.medicalRecordId)
-    
+    const res = await getPrescriptionInfoByMedicalRecordId(record.medicalRecordId)
     if (res.code === 200) {
-      ElMessage.success('订单创建成功！即将跳转到支付页面')
-      // 保存订单ID，用于后续支付
-      createdOrderId.value = res.data
-      // 跳转到支付页面或显示支付弹窗
-      router.push({
-  path: '/payment/medicine',
-  query: { orderId: res.data }
-})
-    } else {
-      ElMessage.error(res.message || '创建订单失败，请重试')
+      prescriptionList.value = Array.isArray(res.data) ? res.data : []
+      return
     }
+    ElMessage.error(res.message || '获取处方明细失败')
   } catch (error) {
-    console.error('通过处方创建订单失败:', error)
-    ElMessage.error('网络错误，创建订单失败')
+    console.error('获取处方明细失败:', error)
+    ElMessage.error('获取处方明细失败，请稍后重试')
   } finally {
-    // 关闭加载状态
-    loading.close()
+    prescriptionLoading.value = false
   }
 }
 
+// 导入接口函数
 // 获取就诊记录列表
 const fetchRecordList = async () => {
   console.log('=== 开始获取就诊记录列表 ===')

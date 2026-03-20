@@ -58,28 +58,10 @@ const routes = [
         meta: { title: '在线问诊' }
       },
       {
-        path: 'medicine',
-        name: 'Medicine',
-        component: () => import('../views/medicine/index.vue'),
-        meta: { title: '在线购药' }
-      },
-      {
         path: 'record',
         name: 'Record',
         component: () => import('../views/record/index.vue'),
         meta: { title: '就诊记录' }
-      },
-      {
-        path: 'payment/appointment',
-        name: 'PaymentAppointment',
-        component: () => import('../views/payment/appointment.vue'),
-        meta: { title: '挂号支付记录' }
-      },
-      {
-        path: 'payment/medicine',
-        name: 'PaymentMedicine',
-        component: () => import('../views/payment/medicine.vue'),
-        meta: { title: '药品支付记录' }
       },
       {
         path: 'user',

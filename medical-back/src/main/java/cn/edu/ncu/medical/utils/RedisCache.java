@@ -114,6 +114,58 @@ public class RedisCache {
 		}
 	}
 
+	public long increment(String key, long delta, int expireSeconds) {
+		if (!canUseRedis()) {
+			if (fallbackEnabled) {
+				return incrementInMemory(key, delta, expireSeconds);
+			}
+			throw new IllegalStateException("StringRedisTemplate not available");
+		}
+		try {
+			Long value = stringRedisTemplate.opsForValue().increment(key, delta);
+			if (value != null && value == delta && expireSeconds > 0) {
+				stringRedisTemplate.expire(key, expireSeconds, TimeUnit.SECONDS);
+			}
+			return value == null ? 0L : value;
+		} catch (RuntimeException ex) {
+			if (!fallbackEnabled) {
+				throw ex;
+			}
+			log.warn("Redis unavailable, fallback to in-memory for increment, key={}", key);
+			return incrementInMemory(key, delta, expireSeconds);
+		}
+	}
+
+	private long incrementInMemory(String key, long delta, int expireSeconds) {
+		synchronized (inMemory) {
+			InMemoryValue current = inMemory.get(key);
+			Long expireAt = null;
+			if (current != null && current.expireAtMillis != null && System.currentTimeMillis() > current.expireAtMillis) {
+				current = null;
+			}
+			if (current == null) {
+				if (expireSeconds > 0) {
+					expireAt = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(expireSeconds);
+				}
+				inMemory.put(key, new InMemoryValue(String.valueOf(delta), expireAt));
+				return delta;
+			}
+			long currentValue = 0L;
+			try {
+				currentValue = Long.parseLong(current.value);
+			} catch (NumberFormatException ignored) {
+				currentValue = 0L;
+			}
+			long nextValue = currentValue + delta;
+			expireAt = current.expireAtMillis;
+			if (expireAt == null && expireSeconds > 0) {
+				expireAt = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(expireSeconds);
+			}
+			inMemory.put(key, new InMemoryValue(String.valueOf(nextValue), expireAt));
+			return nextValue;
+		}
+	}
+
 	public RedisCache setObject(String key, Object object) throws Exception {
 		String value = objectMapper.writeValueAsString(object);
 		setString(key, value);

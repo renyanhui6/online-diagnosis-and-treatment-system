@@ -47,6 +47,12 @@
             登录
           </el-button>
         </el-form-item>
+
+        <el-form-item v-if="showDevQuickLogin">
+          <el-button plain class="login-button" :loading="loading" @click="handleLocalLogin">
+            本地直连
+          </el-button>
+        </el-form-item>
         
         <div class="login-options">
           <el-link type="primary" @click="goToRegister">注册账号</el-link>
@@ -63,10 +69,11 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock, Key } from '@element-plus/icons-vue'
 import UserStorage from '../../utils/userStorage'
-import { login, getUserInfo } from '../../api/user'
+import { login, getUserInfo, getDevToken } from '../../api/user'
 import { generateCaptcha } from '../../utils'
 
 const router = useRouter()
+const showDevQuickLogin = import.meta.env.DEV
 
 // 登录表单
 const loginFormRef = ref(null)
@@ -119,19 +126,67 @@ const refreshCaptcha = async () => {
   }
 }
 
+const completeLogin = async (token, successMessage) => {
+  console.log('登录成功，获取到token:', token)
+  UserStorage.setToken(token)
+  console.log('登录后localStorage中的token:', UserStorage.getToken())
+
+  try {
+    console.log('=== 开始获取用户信息 ===')
+    console.log('当前token:', UserStorage.getToken())
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    const userInfoRes = await getUserInfo()
+    console.log('获取用户信息响应:', userInfoRes)
+    console.log('响应状态码:', userInfoRes.code)
+    console.log('响应数据:', userInfoRes.data)
+
+    if (userInfoRes.code === 200) {
+      const userData = userInfoRes.data || {}
+      console.log('准备保存的用户数据:', userData)
+      console.log('用户数据中的ID:', userData.id)
+
+      if (!userData.id) {
+        console.error('警告：从后端获取的用户信息中没有ID字段！')
+        console.log('完整的用户数据:', JSON.stringify(userData))
+      }
+
+      UserStorage.setUserInfo(userData)
+      console.log('用户信息已保存到localStorage')
+      console.log('验证：localStorage中的用户信息:', UserStorage.getUserInfo())
+      console.log('验证：localStorage中的用户ID:', UserStorage.getUserId())
+    } else {
+      console.error('获取用户信息失败，状态码:', userInfoRes.code)
+      console.error('错误信息:', userInfoRes.message)
+    }
+  } catch (userInfoError) {
+    console.error('获取用户信息失败:', userInfoError)
+    console.error('错误详情:', userInfoError.message)
+  }
+
+  console.log('=== 登录流程完成 ===')
+  ElMessage.success(successMessage)
+
+  const redirect = router.currentRoute.value.query.redirect
+  if (redirect) {
+    console.log('检测到重定向参数，跳转到:', redirect)
+    await router.push(redirect)
+    return
+  }
+  await router.push('/')
+}
+
 // 登录处理
 const handleLogin = () => {
   loginFormRef.value.validate(async (valid) => {
     if (!valid) return
     
-    // 验证码key已在refreshCaptcha中设置
     if (!loginForm.captchaKey) {
       ElMessage.error('请先获取验证码')
-      refreshCaptcha() // 自动获取验证码
+      refreshCaptcha()
       return
     }
     
-    // 构建符合后端要求的登录数据
     const loginData = {
       username: loginForm.username,
       password: loginForm.password,
@@ -141,74 +196,16 @@ const handleLogin = () => {
       }
     }
     
-    // 打印登录表单数据，用于调试
     console.log('登录表单数据:', JSON.stringify(loginData))
     
     loading.value = true
     
     try {
-      // 调用登录接口
       const res = await login(loginData)
       console.log('登录响应:', res)
       if (res.code === 200) {
-        // 保存token (JWT token已在请求拦截器中处理)
-        // 根据后端返回格式，token可能直接是data字段的值
         const token = typeof res.data === 'string' ? res.data : res.data?.token || ''
-        console.log('登录成功，获取到token:', token)
-        UserStorage.setToken(token)
-        
-        // 确认token已保存到localStorage
-        console.log('登录后localStorage中的token:', UserStorage.getToken())
-        
-        // 获取用户信息
-        try {
-          console.log('=== 开始获取用户信息 ===')
-          console.log('当前token:', UserStorage.getToken())
-          
-          // 短暂延迟，确保token已被正确保存
-          await new Promise(resolve => setTimeout(resolve, 100))
-          
-          const userInfoRes = await getUserInfo()
-          console.log('获取用户信息响应:', userInfoRes)
-          console.log('响应状态码:', userInfoRes.code)
-          console.log('响应数据:', userInfoRes.data)
-          
-          if (userInfoRes.code === 200) {
-            const userData = userInfoRes.data || {}
-            console.log('准备保存的用户数据:', userData)
-            console.log('用户数据中的ID:', userData.id)
-            
-            if (!userData.id) {
-              console.error('警告：从后端获取的用户信息中没有ID字段！')
-              console.log('完整的用户数据:', JSON.stringify(userData))
-            }
-            
-            UserStorage.setUserInfo(userData)
-            console.log('用户信息已保存到localStorage')
-            
-            // 验证保存是否成功
-            console.log('验证：localStorage中的用户信息:', UserStorage.getUserInfo())
-            console.log('验证：localStorage中的用户ID:', UserStorage.getUserId())
-          } else {
-            console.error('获取用户信息失败，状态码:', userInfoRes.code)
-            console.error('错误信息:', userInfoRes.message)
-          }
-        } catch (userInfoError) {
-          console.error('获取用户信息失败:', userInfoError)
-          console.error('错误详情:', userInfoError.message)
-        }
-        
-        console.log('=== 登录流程完成 ===')
-        ElMessage.success('登录成功')
-        
-        // 检查是否有重定向参数
-        const redirect = router.currentRoute.value.query.redirect
-        if (redirect) {
-          console.log('检测到重定向参数，跳转到:', redirect)
-          router.push(redirect)
-        } else {
-          router.push('/')
-        }
+        await completeLogin(token, '登录成功')
       } else {
         ElMessage.error(res.message || '登录失败')
         refreshCaptcha()
@@ -221,6 +218,25 @@ const handleLogin = () => {
       loading.value = false
     }
   })
+}
+
+const handleLocalLogin = async () => {
+  if (!showDevQuickLogin || loading.value) return
+
+  loading.value = true
+  try {
+    const res = await getDevToken({ type: 1 })
+    if (res.code !== 200 || !res.data) {
+      ElMessage.error(res.message || '获取本地登录令牌失败')
+      return
+    }
+    await completeLogin(res.data, '已使用本地患者账号登录')
+  } catch (error) {
+    console.error('本地直连失败:', error)
+    ElMessage.error(error.message || '本地直连失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 // 跳转到注册页

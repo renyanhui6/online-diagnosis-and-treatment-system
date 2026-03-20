@@ -57,7 +57,7 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useUserStore } from '@/stores/user';
 import {
-  HomeFilled, User, DataLine, Calendar, ChatDotRound, Document
+  HomeFilled, User, Calendar, ChatDotRound, Document
 } from '@element-plus/icons-vue';
 
 const props = defineProps({
@@ -85,11 +85,6 @@ const doctorMenus = [
     icon: 'HomeFilled'
   },
   {
-    path: '/doctor/appointments',
-    title: '我的排班',
-    icon: 'Calendar'
-  },
-  {
     path: '/doctor/consultations',
     title: '在线问诊',
     icon: 'ChatDotRound'
@@ -114,11 +109,6 @@ const adminMenus = [
     icon: 'HomeFilled'
   },
   {
-    path: '/admin/statistics',
-    title: '统计报表',
-    icon: 'DataLine'
-  },
-  {
     path: '/admin/doctors',
     title: '医生管理',
     icon: 'User'
@@ -132,6 +122,11 @@ const adminMenus = [
     path: '/admin/medicines',
     title: '药品管理',
     icon: 'FirstAidKit'
+  },
+  {
+    path: '/admin/schedule-templates',
+    title: '排班模板',
+    icon: 'Calendar'
   },
   {
     path: '/admin/patients',

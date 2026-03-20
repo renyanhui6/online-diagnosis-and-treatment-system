@@ -41,13 +41,9 @@
         </div>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item command="profile">
+            <el-dropdown-item v-if="isDoctor" command="profile">
               <el-icon><User /></el-icon>
               <span>个人信息</span>
-            </el-dropdown-item>
-            <el-dropdown-item command="settings">
-              <el-icon><Setting /></el-icon>
-              <span>系统设置</span>
             </el-dropdown-item>
             <el-dropdown-item divided command="logout">
               <el-icon><SwitchButton /></el-icon>
@@ -66,7 +62,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/user';
 import { 
   Expand, Fold, FullScreen, 
-  ArrowDown, User, Setting, SwitchButton 
+  ArrowDown, User, SwitchButton 
 } from '@element-plus/icons-vue';
 
 const props = defineProps({
@@ -118,9 +114,7 @@ function handleCommand(command) {
     userStore.logout();
     router.push('/login');
   } else if (command === 'profile') {
-    router.push(isDoctor.value ? '/doctor/profile' : '/admin/profile');
-  } else if (command === 'settings') {
-    router.push(isDoctor.value ? '/doctor/settings' : '/admin/settings');
+    router.push('/doctor/profile');
   }
 }
 </script>

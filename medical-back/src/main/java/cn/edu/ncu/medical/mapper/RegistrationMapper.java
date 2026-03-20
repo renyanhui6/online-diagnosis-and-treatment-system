@@ -47,8 +47,14 @@ public interface RegistrationMapper extends BaseMapper<Registration> {
      * @return
      */
     IPage<RegistrationInfo> selectAllRegistrationInfo(Long doctorId, Page<RegistrationInfo> page, RegistrationCondition registrationCondition);
-}
 
+    /**
+     * 根据挂号ID查询详细信息
+     * @param registrationId
+     * @return
+     */
+    RegistrationInfo selectRegistrationInfoById(Long registrationId);
+}
 
 
 

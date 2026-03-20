@@ -30,4 +30,9 @@ public class NettyServerProperties {
      * 是否启用 Netty 服务，便于灰度/回退
      */
     private boolean enabled = true;
+
+    /**
+     * 患者响应超时分钟数（问诊请求等待）
+     */
+    private int patientResponseTimeoutMinutes = 3;
 }

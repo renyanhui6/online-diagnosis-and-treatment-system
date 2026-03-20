@@ -76,7 +76,7 @@
                   接诊
                 </el-button>
                 <el-button
-                  v-else-if="consultation.registrationStatus === 6"
+                  v-else-if="consultation.registrationStatus === 5 || consultation.registrationStatus === 6"
                   type="primary"
                   size="small"
                   @click.stop="reAcceptConsultation(consultation)"
@@ -93,7 +93,7 @@
                 </el-button>
                 <div v-else-if="consultation.registrationStatus === 7" class="waiting-status">
                   <el-tag type="warning" size="small">
-                    等待响应 {{ getWaitingTime(consultation.id) }}
+                    等待患者确认
                   </el-tag>
                   <el-button
                     type="warning"
@@ -256,21 +256,9 @@
             <span class="item-label">更新时间：</span>
             <span class="item-value">{{ selectedConsultation.updateTime }}</span>
           </div>
-          <div class="detail-item" v-if="selectedConsultation.relatedAppointment">
-            <span class="item-label">关联预约：</span>
-            <span class="item-value">
-              <el-link type="primary" @click="viewRelatedAppointment">{{ selectedConsultation.relatedAppointment }}</el-link>
-            </span>
-          </div>
           <div class="detail-item" v-if="selectedConsultation.diagnosis">
             <span class="item-label">诊断结果：</span>
             <span class="item-value">{{ selectedConsultation.diagnosis }}</span>
-          </div>
-          <div class="detail-item" v-if="selectedConsultation.prescription">
-            <span class="item-label">处方信息：</span>
-            <span class="item-value">
-              <el-link type="primary" @click="viewPrescription">查看处方详情</el-link>
-            </span>
           </div>
           <div class="detail-item" v-if="selectedConsultation.satisfactionScore">
             <span class="item-label">满意度评分：</span>
@@ -300,7 +288,7 @@
             接诊
           </el-button>
           <el-button
-            v-if="selectedConsultation.registrationStatus === 6"
+            v-if="selectedConsultation.registrationStatus === 5 || selectedConsultation.registrationStatus === 6"
             type="primary"
             @click="reAcceptConsultation(selectedConsultation)"
           >
@@ -319,20 +307,6 @@
             @click="finishConsultation(selectedConsultation)"
           >
             结束问诊
-          </el-button>
-          <el-button 
-            v-if="selectedConsultation.registrationStatus === 3 && !selectedConsultation.prescription"
-            type="warning" 
-            @click="createPrescription(selectedConsultation)"
-          >
-            开具处方
-          </el-button>
-          <el-button
-            v-if="selectedConsultation.registrationStatus === 5"
-            type="info"
-            @click="resumeConsultation(selectedConsultation)"
-          >
-            恢复问诊
           </el-button>
           <el-button 
             type="info" 
@@ -375,9 +349,6 @@
             placeholder="请输入注意事项"
           />
         </el-form-item>
-        <el-form-item label="是否开处方">
-          <el-switch v-model="diagnosisForm.needPrescription" />
-        </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
@@ -390,35 +361,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 
 import { useRouter } from 'vue-router';
 import { Search, Refresh } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { getRegistrationList, getAllRegistrationInfoList, changeStatusToCompleted } from '@/api/doctor';
+import { addMedicalRecord, getRegistrationList, getAllRegistrationInfoList, changeStatusToCompleted } from '@/api/doctor';
 import { initiateConsultation, getChatRoom } from '@/api/chat';
 import { useUserStore } from '@/stores/user';
-import * as echarts from 'echarts/core';
-import { BarChart, PieChart, LineChart } from 'echarts/charts';
-import {
-  TitleComponent,
-  TooltipComponent,
-  GridComponent,
-  LegendComponent
-} from 'echarts/components';
-import { CanvasRenderer } from 'echarts/renderers';
-
-// 注册 ECharts 组件
-echarts.use([
-  BarChart,
-  PieChart,
-  LineChart,
-  TitleComponent,
-  TooltipComponent,
-  GridComponent,
-  LegendComponent,
-  CanvasRenderer
-]);
 
 
 const router = useRouter();
@@ -427,7 +377,6 @@ const userStore = useUserStore();
 // 状态和数据
 const activeTab = ref('pending');
 const loading = ref(false);
-const statisticsLoading = ref(false);
 const consultations = ref([]);
 const currentPage = ref(1);
 const pageSize = ref(10);
@@ -445,31 +394,13 @@ const diagnosisForm = ref({
   id: '',
   diagnosis: '',
   treatment: '',
-  notes: '',
-  needPrescription: false
+  notes: ''
 });
 
 const diagnosisRules = {
   diagnosis: [{ required: true, message: '请输入诊断结果', trigger: 'blur' }],
   treatment: [{ required: true, message: '请输入治疗建议', trigger: 'blur' }]
 };
-
-// 统计数据
-const statistics = ref({
-  totalCount: 0,
-  activeCount: 0,
-  avgResponseTime: 0,
-  satisfactionScore: 0
-});
-
-// 响应定时器存储
-const responseTimers = ref({});
-
-// 等待开始时间存储
-const waitingStartTimes = ref({});
-
-// 倒计时定时器
-const countdownTimer = ref(null);
 
 // 状态选项 - 根据registrationStatus字段
 const statusOptions = [
@@ -478,7 +409,8 @@ const statusOptions = [
   { value: 4, label: '已完成' },
   { value: 5, label: '暂时挂起' },
   { value: 6, label: '已回归' },
-  { value: 7, label: '等待患者确认' }
+  { value: 7, label: '等待患者确认' },
+  { value: 8, label: '失效' }
 ];
 
 // 计算属性
@@ -606,6 +538,7 @@ function getStatusType(status) {
     case 5: return 'info'; // 暂时挂起
     case 6: return 'info'; // 已回归
     case 7: return 'warning'; // 等待患者确认
+    case 8: return 'info'; // 失效
     default: return 'info';
   }
 }
@@ -618,6 +551,7 @@ function getStatusText(status) {
     case 5: return '暂时挂起';
     case 6: return '已回归';
     case 7: return '等待患者确认';
+    case 8: return '失效';
     default: return '未知';
   }
 }
@@ -877,9 +811,6 @@ async function performAcceptConsultation(consultation, doctorId) {
           consultations.value[index].registrationStatus = 7; // 7: 等待患者确认
         }
 
-        // 启动3分钟倒计时
-        startResponseTimer(consultation.id);
-
         // 跳转到现有聊天房间
         router.push(`/doctor/chat/${existingRoom.id}`);
         return;
@@ -914,9 +845,6 @@ async function performAcceptConsultation(consultation, doctorId) {
         consultations.value[index].registrationStatus = 7; // 7: 等待患者确认
       }
 
-      // 启动3分钟倒计时
-      startResponseTimer(consultation.id);
-
       // 获取创建的房间ID，跳转到聊天页面
       const roomId = response.data.roomId;
       if (roomId) {
@@ -938,109 +866,6 @@ async function performAcceptConsultation(consultation, doctorId) {
 // 查看等待响应状态
 function viewWaitingStatus(consultation) {
   ElMessage.info(`正在等待患者 ${consultation.patientName} 确认接诊请求`);
-}
-
-// 启动响应倒计时
-function startResponseTimer(consultationId) {
-  // 记录开始时间
-  waitingStartTimes.value[consultationId] = Date.now();
-
-  const timer = setTimeout(() => {
-    // 3分钟后，如果患者仍未响应，将状态改为挂起
-    const index = consultations.value.findIndex(item => item.id === consultationId);
-    if (index !== -1 && consultations.value[index].registrationStatus === 7) {
-      consultations.value[index].registrationStatus = 5; // 5: 暂时挂起
-      ElMessage.warning('患者超时未响应，问诊已挂起');
-    }
-  }, 3 * 60 * 1000); // 3分钟
-
-  // 保存定时器引用，以便后续清理
-  responseTimers.value[consultationId] = timer;
-
-  // 启动倒计时更新
-  startCountdown();
-}
-
-// 获取等待时间
-function getWaitingTime(consultationId) {
-  const startTime = waitingStartTimes.value[consultationId];
-  if (!startTime) return '';
-
-  const elapsed = Math.floor((Date.now() - startTime) / 1000);
-  const remaining = Math.max(0, 180 - elapsed); // 3分钟 = 180秒
-
-  const minutes = Math.floor(remaining / 60);
-  const seconds = remaining % 60;
-
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
-
-// 启动倒计时更新
-function startCountdown() {
-  if (countdownTimer.value) return;
-
-  countdownTimer.value = setInterval(() => {
-    // 强制更新组件，显示最新的倒计时
-    consultations.value = [...consultations.value];
-  }, 1000);
-}
-
-// 清理响应定时器
-function clearResponseTimer(consultationId) {
-  if (responseTimers.value[consultationId]) {
-    clearTimeout(responseTimers.value[consultationId]);
-    delete responseTimers.value[consultationId];
-  }
-
-  // 清理等待开始时间
-  delete waitingStartTimes.value[consultationId];
-
-  // 如果没有其他等待的问诊，停止倒计时
-  if (Object.keys(waitingStartTimes.value).length === 0 && countdownTimer.value) {
-    clearInterval(countdownTimer.value);
-    countdownTimer.value = null;
-  }
-}
-
-// 处理患者响应
-function handlePatientResponse(consultationId, response) {
-  const index = consultations.value.findIndex(item => item.id === consultationId);
-  if (index === -1) return;
-
-  // 清理定时器
-  clearResponseTimer(consultationId);
-
-  if (response === 'accept') {
-    // 患者接受问诊
-    consultations.value[index].registrationStatus = 3; // 3: 问诊中
-    ElMessage.success('患者已接受问诊，可以开始聊天');
-
-    // 刷新问诊列表
-  fetchConsultations();
-  } else if (response === 'reject') {
-    // 患者拒绝问诊
-    consultations.value[index].registrationStatus = 5; // 5: 暂时挂起
-    ElMessage.warning('患者拒绝问诊');
-
-    // 刷新问诊列表
-    fetchConsultations();
-  }
-}
-
-// 恢复问诊（将挂起状态改为已回归）
-async function resumeConsultation(consultation) {
-  try {
-    const index = consultations.value.findIndex(item => item.id === consultation.id);
-    if (index === -1) return;
-
-    // 更新状态为已回归
-    consultations.value[index].registrationStatus = 6; // 6: 已回归
-
-    ElMessage.success('问诊已恢复为已回归状态');
-  } catch (error) {
-    console.error('恢复问诊失败:', error);
-    ElMessage.error('恢复问诊失败');
-  }
 }
 
 // 重新接诊已回归的患者
@@ -1147,9 +972,6 @@ async function performReAcceptConsultation(consultation, doctorId) {
         consultations.value[index].registrationStatus = 7; // 7: 等待患者确认
       }
 
-      // 启动3分钟倒计时
-      startResponseTimer(consultation.id);
-
       // 获取创建的房间ID，跳转到聊天页面
       const roomId = response.data.roomId;
       if (roomId) {
@@ -1212,30 +1034,12 @@ function finishConsultation(consultation) {
     id: consultation.id,
     diagnosis: '',
     treatment: '',
-    notes: '',
-    needPrescription: false
+    notes: ''
   };
   finishDialogVisible.value = true;
   } catch (error) {
     console.error('结束问诊失败:', error);
     ElMessage.error('结束问诊失败，请稍后重试');
-  }
-}
-
-function createPrescription(consultation) {
-  router.push(`/doctor/prescriptions/new?consultationId=${consultation.id}`);
-}
-
-function viewPrescription() {
-  if (selectedConsultation.value && selectedConsultation.value.prescription) {
-    router.push(`/doctor/prescriptions/${selectedConsultation.value.prescription.id}`);
-  }
-}
-
-function viewRelatedAppointment() {
-  if (selectedConsultation.value && selectedConsultation.value.relatedAppointment) {
-    // 这里可以跳转到预约详情页或者打开预约详情抽屉
-    ElMessage({ type: 'info', message: `查看预约 ${selectedConsultation.value.relatedAppointment} 的详情` });
   }
 }
 
@@ -1245,64 +1049,56 @@ async function submitDiagnosis() {
   await diagnosisFormRef.value.validate(async (valid) => {
     if (valid) {
       try {
-        // 调用后端接口，将状态设置为已完成
-        try {
-          const registrationId = diagnosisForm.value.id;
-          if (registrationId) {
-            console.log('🔌 调用changeStatusToCompleted，registrationId:', registrationId);
-            await changeStatusToCompleted(registrationId);
-            console.log('✅ 状态已更新为已完成');
-          } else {
-            console.error('❌ 无法获取registrationId');
-          }
-        } catch (error) {
-          console.error('❌ 更新状态为已完成失败:', error);
-          ElMessage.error('更新状态失败');
+        if (!selectedConsultation.value || !selectedConsultation.value.id) {
+          ElMessage.error('问诊信息缺失，无法提交诊断');
+          return;
         }
-        
-        // 模拟API调用
-        // await submitConsultationDiagnosis(diagnosisForm.value);
-        
-        // 模拟成功响应
-        setTimeout(() => {
-          // 更新本地数据
-          const index = consultations.value.findIndex(item => item.id === diagnosisForm.value.id);
-          if (index !== -1) {
-            consultations.value[index].registrationStatus = 4; // 4: 已完成
-            consultations.value[index].diagnosis = diagnosisForm.value.diagnosis;
-            consultations.value[index].endTime = new Date().toLocaleString('zh-CN', {
-              year: 'numeric',
-              month: '2-digit',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit'
-            });
-          }
-          
-          // 如果抽屉打开且显示的是当前问诊，也更新抽屉中的数据
-          if (drawerVisible.value && selectedConsultation.value && selectedConsultation.value.id === diagnosisForm.value.id) {
-            selectedConsultation.value.registrationStatus = 4;
-            selectedConsultation.value.diagnosis = diagnosisForm.value.diagnosis;
-            selectedConsultation.value.endTime = new Date().toLocaleString('zh-CN', {
-              year: 'numeric',
-              month: '2-digit',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit'
-            });
-          }
-          
-          finishDialogVisible.value = false;
-          ElMessage.success('问诊已结束，诊断结果已提交');
-          
-          // 如果需要开处方，跳转到处方页面
-          if (diagnosisForm.value.needPrescription) {
-            router.push(`/doctor/prescriptions/new?consultationId=${diagnosisForm.value.id}`);
-          }
-          
-          // 更新统计数据
-          // updateStatistics(); // 移除此行
-        }, 500);
+
+        let doctorId = userStore.userInfo?.userId;
+        if (!doctorId) {
+          const userInfo = await userStore.fetchUserInfo();
+          doctorId = userInfo?.userId;
+        }
+        if (!doctorId) {
+          ElMessage.error('获取医生信息失败，请重新登录');
+          return;
+        }
+
+        if (!selectedConsultation.value.patientId) {
+          ElMessage.error('患者ID缺失，无法提交诊断');
+          return;
+        }
+
+        const descriptionParts = [
+          `诊断结果：${diagnosisForm.value.diagnosis}`,
+          `治疗建议：${diagnosisForm.value.treatment}`
+        ];
+        if (diagnosisForm.value.notes) {
+          descriptionParts.push(`注意事项：${diagnosisForm.value.notes}`);
+        }
+
+        const recordPayload = {
+          doctorId,
+          patientId: selectedConsultation.value.patientId,
+          doctorDescription: descriptionParts.join('\\n')
+        };
+
+        const recordRes = await addMedicalRecord(recordPayload);
+        if (recordRes.code !== 200) {
+          ElMessage.error(recordRes.message || '就诊记录提交失败');
+          return;
+        }
+
+        const registrationId = selectedConsultation.value.id;
+        const statusRes = await changeStatusToCompleted(registrationId);
+        if (statusRes.code !== 200) {
+          ElMessage.error(statusRes.message || '更新问诊状态失败');
+          return;
+        }
+
+        finishDialogVisible.value = false;
+        ElMessage.success('问诊已结束，诊断结果已提交');
+        await fetchConsultations();
       } catch (error) {
         console.error('提交诊断结果失败:', error);
         ElMessage.error('提交诊断结果失败');
@@ -1321,13 +1117,6 @@ function handleResize() {
 onMounted(async () => {
   // 获取用户信息
   await userStore.fetchUserInfo();
-
-  // 检查是否有从预约管理跳转过来的appointmentId
-  const appointmentId = router.currentRoute.value.query.appointmentId;
-  if (appointmentId) {
-    // 如果有appointmentId，创建新的问诊记录
-    createConsultationFromAppointment(appointmentId);
-  }
   
   fetchConsultations();
   window.addEventListener('resize', handleResize);
@@ -1339,58 +1128,8 @@ onMounted(async () => {
   window.addEventListener('storage', handleStorageChange);
 });
 
-// 从预约创建问诊
-function createConsultationFromAppointment(appointmentId) {
-  // 这里应该调用API创建问诊记录
-  // 暂时使用模拟数据
-  const newConsultation = {
-    id: `C${Date.now()}`,
-    patientName: '患者姓名',
-    patientAvatar: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGNUY1RjUiLz4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4PSI4IiB5PSI4Ij4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDEyQzE0LjIwOTEgMTIgMTYgMTAuMjA5MSAxNiA4QzE2IDUuNzkwODYgMTQuMjA5MSA0IDEyIDRDOS43OTA4NiA0IDggNS43OTA4NiA4IDhDOCAxMC4yMDkxIDkuNzkwODYgMTIgMTJaIiBmaWxsPSIjOTk5OTk5Ii8+CjxwYXRoIGQ9Ik0xMiAxNEM5LjMzIDEzLjk5IDcuMDEgMTUuNjIgNiAxOEMxMC4wMSAyMCAxMy45OSAyMCAxOCAxOEMxNi45OSAxNS42MiAxNC42NyAxMy45OSAxMiAxNFoiIGZpbGw9IiM5OTk5OTkiLz4KPC9zdmc+Cjwvc3ZnPgo8L3N2Zz4K',
-    patientGender: '男',
-    patientAge: 35,
-    type: '图文问诊',
-    title: '从预约转入的问诊',
-    startTime: new Date().toLocaleString('zh-CN'),
-    lastReplyTime: new Date().toLocaleString('zh-CN'),
-    messageCount: 0,
-    status: '进行中',
-    relatedAppointment: appointmentId
-  };
-  
-  // 添加到问诊列表
-  consultations.value.unshift(newConsultation);
-  
-  // 自动进入问诊聊天界面
-  setTimeout(() => {
-    enterConsultation(newConsultation);
-  }, 500);
-}
-
 // 组件卸载时移除事件监听
-watch(() => activeTab.value, (newVal) => {
-  if (newVal === 'statistics') {
-    statisticsLoading.value = true;
-    setTimeout(() => {
-      // 如果需要统计功能，可以在这里添加
-      statisticsLoading.value = false;
-    }, 500);
-  }
-});
-
-// 组件卸载时清理定时器
 onBeforeUnmount(() => {
-  // 清理所有响应定时器
-  Object.keys(responseTimers.value).forEach(consultationId => {
-    clearResponseTimer(consultationId);
-  });
-
-  // 清理倒计时定时器
-  if (countdownTimer.value) {
-    clearInterval(countdownTimer.value);
-    countdownTimer.value = null;
-  }
-
   // 移除窗口大小变化监听
   window.removeEventListener('resize', handleResize);
   

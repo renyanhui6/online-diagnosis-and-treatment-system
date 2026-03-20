@@ -10,5 +10,13 @@
             where doctor_id=#{doctorId} and schedule_date=#{scheduleDate} and is_morning=#{isMorning} and is_deleted = 0
     </select>
 
+    <update id="takeAppointmentSlot">
+        update schedule
+        set current_appointment_count = current_appointment_count + 1
+        where id = #{scheduleId}
+          and status = 1
+          and is_deleted = 0
+          and current_appointment_count &lt; appointment_limit
+    </update>
 
 </mapper>
