@@ -8,3 +8,12 @@ export function getTriageSuggestion(data) {
     data
   })
 }
+
+// 患者端 AI 多轮分诊客服
+export function chatTriageAgent(data) {
+  return request({
+    url: '/ai/patient/triage/chat',
+    method: 'post',
+    data
+  })
+}

@@ -10,8 +10,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 public class MedicalRecordImplTest {
@@ -19,6 +23,8 @@ public class MedicalRecordImplTest {
     private MedicalRecordService medicalRecordService;
 
     @Test
+    @Transactional
+    @Rollback
     public void addMedicalRecord() {
         MedicalRecord medicalRecord = new MedicalRecord();
         medicalRecord.setPatientId(1L);
@@ -26,7 +32,9 @@ public class MedicalRecordImplTest {
         medicalRecord.setDoctorDescription("医生描述111");
         medicalRecord.setIsPurchasable(0);
 
-        medicalRecordService.save(medicalRecord);
+        boolean saved = medicalRecordService.save(medicalRecord);
+        assertTrue(saved, "病历保存应成功");
+        assertNotNull(medicalRecord.getId(), "保存后病历主键应回填");
     }
 
     @Test
@@ -35,7 +43,9 @@ public class MedicalRecordImplTest {
         MedicalRecordCondition medicalRecordCondition = new MedicalRecordCondition();
 
         IPage<MedicalRecordInfo> medicalRecordInfoIPage = medicalRecordService.getMedicalRecordByUserId(3L, new Page<>(1,5),medicalRecordCondition);
-        System.out.println(medicalRecordInfoIPage);
+        assertNotNull(medicalRecordInfoIPage);
+        assertNotNull(medicalRecordInfoIPage.getRecords());
+        assertFalse(medicalRecordInfoIPage.getRecords().isEmpty(), "用户病历列表不应为空");
     }
 
     @Test
@@ -47,13 +57,15 @@ public class MedicalRecordImplTest {
         Long doctorId = 132L;
         medicalRecordCondition.setPrescriptionStatus(1);
         IPage<MedicalRecordInfo> medicalRecordInfoIPage = medicalRecordService.getMedicalRecordByDoctorId(doctorId,page,medicalRecordCondition);
-        System.out.println(medicalRecordInfoIPage);
+        assertNotNull(medicalRecordInfoIPage);
+        assertNotNull(medicalRecordInfoIPage.getRecords());
     }
 
     @Test
     public void getPrescriptionByMedicalRecordId() {
-        List<PrescriptionInfo> prescriptionInfoList = medicalRecordService.getPrescriptionInfoByMedicalRecordId(8L);
-        System.out.println(prescriptionInfoList);
+        List<PrescriptionInfo> prescriptionInfoList = medicalRecordService.getPrescriptionInfoByMedicalRecordId(52L);
+        assertNotNull(prescriptionInfoList);
+        assertFalse(prescriptionInfoList.isEmpty(), "病历 52 应存在处方明细");
     }
 
 }

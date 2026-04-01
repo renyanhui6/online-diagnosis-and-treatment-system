@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 @SpringBootTest(properties = "spring.xml.ignore=true")
 public class RegistrationTest {
     @Autowired
@@ -34,7 +36,8 @@ public class RegistrationTest {
 
 
         IPage<RegistrationInfo> page1 = registrationService.getRegistrationList(doctorId,page,registrationCondition);
-        System.out.println(page1);
+        assertNotNull(page1);
+        assertNotNull(page1.getRecords());
 //        IPage<RegistrationInfo> page2 = registrationService.getRegistrationList(doctorId,page,scheduleId,registrationCondition);
 //        System.out.println(page2);
 //        System.out.println(page1);
@@ -50,7 +53,9 @@ public class RegistrationTest {
         RegistrationCondition registrationCondition = new RegistrationCondition();
 //        registrationCondition.setRegistrationStatus(5);
         IPage<RegistrationInfo> pageInfo = registrationService.getRegistrationInfoList(userId,page,registrationCondition);
-        System.out.println(pageInfo);
+        assertNotNull(pageInfo);
+        assertNotNull(pageInfo.getRecords());
+        assertFalse(pageInfo.getRecords().isEmpty(), "患者挂号列表不应为空");
     }
 
     @Test
@@ -62,6 +67,7 @@ public class RegistrationTest {
         RegistrationCondition registrationCondition = new RegistrationCondition();
 //        registrationCondition.setRegistrationStatus(5);
         IPage<RegistrationInfo> pageInfo = registrationService.getAllRegistrationList(doctorId,page,registrationCondition);
-        System.out.println(pageInfo);
+        assertNotNull(pageInfo);
+        assertNotNull(pageInfo.getRecords());
     }
 }

@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS `registration_payment_order` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `registration_id` bigint NOT NULL,
+  `payer_user_id` bigint NOT NULL,
+  `out_trade_no` varchar(64) NOT NULL,
+  `payment_amount` decimal(10,2) NOT NULL,
+  `payment_status` tinyint NOT NULL DEFAULT '0',
+  `subject` varchar(128) NOT NULL,
+  `payment_method` varchar(32) DEFAULT NULL,
+  `payment_gateway` varchar(32) DEFAULT NULL,
+  `gateway_trade_no` varchar(64) DEFAULT NULL,
+  `buyer_logon_id` varchar(128) DEFAULT NULL,
+  `status_remark` varchar(255) DEFAULT NULL,
+  `expire_time` datetime DEFAULT NULL,
+  `payment_time` datetime DEFAULT NULL,
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `is_deleted` tinyint NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_registration_payment_trade` (`out_trade_no`),
+  KEY `idx_registration_payment_registration` (`registration_id`),
+  KEY `idx_registration_payment_payer` (`payer_user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

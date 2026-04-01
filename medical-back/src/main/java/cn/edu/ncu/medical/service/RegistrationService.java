@@ -60,10 +60,10 @@ public interface RegistrationService extends IService<Registration> {
                                                           RegistrationCondition condition);
 
     /**
-     * 创建挂号记录（简化为直接创建，不再走支付流程）
-     * @param registration 挂号信息
+     * 创建挂号记录并进入支付流程
+     * @param request 挂号信息
      * @param userId 当前登录用户ID
-     * @return 挂号ID
+     * @return 预约处理状态
      */
     AppointmentReservationStatusVo createRegistration(AppointmentCreateRequest request, Long userId);
 

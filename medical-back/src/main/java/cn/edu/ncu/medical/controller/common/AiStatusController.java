@@ -1,6 +1,7 @@
 package cn.edu.ncu.medical.controller.common;
 
 import cn.edu.ncu.medical.ai.DeepSeekProperties;
+import cn.edu.ncu.medical.ai.AiSearchProperties;
 import cn.edu.ncu.medical.result.Result;
 import lombok.Data;
 import org.springframework.core.env.Environment;
@@ -17,10 +18,12 @@ import java.util.List;
 public class AiStatusController {
 
     private final DeepSeekProperties deepSeekProperties;
+    private final AiSearchProperties aiSearchProperties;
     private final Environment environment;
 
-    public AiStatusController(DeepSeekProperties deepSeekProperties, Environment environment) {
+    public AiStatusController(DeepSeekProperties deepSeekProperties, AiSearchProperties aiSearchProperties, Environment environment) {
         this.deepSeekProperties = deepSeekProperties;
+        this.aiSearchProperties = aiSearchProperties;
         this.environment = environment;
     }
 
@@ -43,6 +46,8 @@ public class AiStatusController {
         response.setApiKeyPresent(StringUtils.hasText(apiKey));
         response.setApiKeyLength(apiKey == null ? 0 : apiKey.length());
         response.setDeepSeekEnabled(StringUtils.hasText(apiKey));
+        response.setExternalSearchEnabled(aiSearchProperties.isEnabled() && StringUtils.hasText(aiSearchProperties.getApiKey()));
+        response.setExternalSearchProvider(aiSearchProperties.getProvider());
         return Result.ok(response);
     }
 
@@ -54,6 +59,8 @@ public class AiStatusController {
         private int timeoutSeconds;
         private boolean apiKeyPresent;
         private int apiKeyLength;
+        private boolean externalSearchEnabled;
+        private String externalSearchProvider;
         private List<String> activeProfiles;
     }
 }

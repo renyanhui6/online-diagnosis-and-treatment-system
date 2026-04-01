@@ -10,6 +10,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 @SpringBootTest
 public class DrugTest {
 
@@ -22,13 +24,17 @@ public class DrugTest {
         IPage<Drug> drugList = drugService.getDrugList(page);
         String search = "阿";
         IPage<Drug> drugListBySearch = drugService.getDrugListBySearch(page, search);
-        System.out.println(drugList);
-        System.out.println(drugListBySearch);
+        assertNotNull(drugList);
+        assertNotNull(drugList.getRecords());
+        assertFalse(drugList.getRecords().isEmpty(), "药品列表不应为空");
+        assertNotNull(drugListBySearch);
+        assertNotNull(drugListBySearch.getRecords());
     }
 
     @Test
     public void getAllDrug() {
         List<Drug> allDrug = drugService.list();
-        System.out.println(allDrug);
+        assertNotNull(allDrug);
+        assertFalse(allDrug.isEmpty(), "药品主数据不能为空");
     }
 }

@@ -13,6 +13,32 @@
         </el-carousel-item>
       </el-carousel>
     </div>
+
+    <div class="ai-triage-section animate__animated animate__fadeIn animate__delay-1s">
+      <div class="ai-triage-card">
+        <div class="ai-triage-content">
+          <div class="ai-triage-badge">独立模块</div>
+          <h2>不确定挂哪个科室，先做 AI 智能分诊</h2>
+          <p>
+            先描述症状，系统会结合院内真实科室、子科室和近期排班给出挂号建议，再带你进入预约挂号。
+          </p>
+          <div class="ai-triage-actions">
+            <el-button type="primary" size="large" @click="goToAiTriage">进入 AI 分诊</el-button>
+            <el-button size="large" @click="goToAppointment">直接手动挂号</el-button>
+          </div>
+        </div>
+        <div class="ai-triage-side">
+          <div class="ai-triage-tip">
+            <h3>适合场景</h3>
+            <ul>
+              <li>不知道该挂哪个科室</li>
+              <li>多个科室看起来都像</li>
+              <li>想先缩小挂号范围</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
     
     <!-- 科室信息 -->
     <div class="department-section animate__animated animate__fadeIn animate__delay-1s">
@@ -203,6 +229,10 @@ const goToAppointment = () => {
   router.push('/appointment')
 }
 
+const goToAiTriage = () => {
+  router.push('/ai-triage')
+}
+
 // 主科室点击处理
 const handleDeptClick = (deptId) => {
   router.push({
@@ -343,6 +373,77 @@ onMounted(async () => {
   transform: translateY(-3px);
   box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
   background: linear-gradient(135deg, #1d4ed8, #1e40af);
+}
+
+.ai-triage-section {
+  margin-bottom: 28px;
+  position: relative;
+  z-index: 2;
+}
+
+.ai-triage-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(240px, 0.9fr);
+  gap: 18px;
+  padding: 28px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94) 0%, rgb(var(--primary-100-rgb) / 0.7) 100%);
+  border: 1px solid rgb(var(--primary-300-rgb) / 0.32);
+  box-shadow: var(--shadow-xl);
+}
+
+.ai-triage-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgb(var(--primary-600-rgb) / 0.12);
+  color: var(--primary-700);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ai-triage-content h2 {
+  margin: 16px 0 10px;
+  font-size: 30px;
+  color: #1e40af;
+  line-height: 1.25;
+}
+
+.ai-triage-content p {
+  margin: 0;
+  font-size: 15px;
+  color: var(--neutral-700);
+  line-height: 1.8;
+}
+
+.ai-triage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.ai-triage-tip {
+  height: 100%;
+  padding: 20px;
+  border-radius: 18px;
+  background: rgb(var(--primary-500-rgb) / 0.08);
+  border: 1px solid rgb(var(--primary-500-rgb) / 0.14);
+}
+
+.ai-triage-tip h3 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  color: #1e40af;
+}
+
+.ai-triage-tip ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--neutral-700);
+  line-height: 1.9;
 }
 
 @keyframes slideInLeft {
@@ -789,6 +890,15 @@ onMounted(async () => {
 @media (max-width: 768px) {
   .home-container {
     padding: 15px;
+  }
+
+  .ai-triage-card {
+    grid-template-columns: 1fr;
+    padding: 22px;
+  }
+
+  .ai-triage-content h2 {
+    font-size: 24px;
   }
   
   .nested-departments {

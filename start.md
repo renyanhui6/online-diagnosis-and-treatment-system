@@ -4,6 +4,7 @@
 
 ## 最新进度（已更新到当前仓库实现）
 - AI：已接入 DeepSeek（需配置 `DEEPSEEK_API_KEY`），并提供自检接口 `GET /treat/ai/status`
+- 支付：已恢复支付宝沙盒页支付链路，挂号创建后会先进入 `待支付`，再由患者端拉起沙盒支付页并回跳 `/payment/result`
 - 上传：已改为本地 MinIO（S3 兼容），默认 `http://localhost:9000`，bucket `medical`
 - local 模式：使用本地 MySQL 数据库；默认关闭严格鉴权，但会优先按请求中的 dev token 识别当前用户，无 token 时回退到 `application-local.yml` 中的 dev 用户；排班生成/挂号状态推进为“补偿式”；挂号创建已切换为 `Redis 预占 + RabbitMQ 异步落库`，因此 **Redis 和 RabbitMQ 都必须启动**
 - 排班/挂号：排班生成与挂号状态推进改为“补偿式”，不会因为错过某个定时点就永久卡死
@@ -23,6 +24,11 @@ cd medical-back
 $env:SPRING_PROFILES_ACTIVE="local"
 # 如果你已配置到系统环境变量，这行可以不写
 $env:DEEPSEEK_API_KEY="你的apikey"
+$env:ALIPAY_ENABLED="true"
+$env:ALIPAY_APP_ID="你的沙盒APPID"
+$env:ALIPAY_PRIVATE_KEY="你的应用私钥"
+$env:ALIPAY_PUBLIC_KEY="支付宝沙盒公钥"
+$env:ALIPAY_RETURN_URL="http://127.0.0.1:5173/payment/result"
 .\mvnw.cmd spring-boot:run
 
 # 2) 患者端（另开一个终端）
@@ -46,6 +52,11 @@ cd medical-back
 export SPRING_PROFILES_ACTIVE=local
 # 如果你已配置到系统环境变量，这行可以不写
 export DEEPSEEK_API_KEY='你的apikey'
+export ALIPAY_ENABLED='true'
+export ALIPAY_APP_ID='你的沙盒APPID'
+export ALIPAY_PRIVATE_KEY='你的应用私钥'
+export ALIPAY_PUBLIC_KEY='支付宝沙盒公钥'
+export ALIPAY_RETURN_URL='http://127.0.0.1:5173/payment/result'
 ./mvnw spring-boot:run
 
 # 2) 患者端（另开一个终端）
@@ -94,7 +105,7 @@ docker run -d --name medical-redis -p 6379:6379 redis:7-alpine
 # RabbitMQ（带管理台 http://localhost:15672，默认 guest/guest）
 docker run -d --name medical-rabbit -p 5672:5672 -p 15672:15672 rabbitmq:3-management
 
-# MinIO（API:9000, 控制台:9002，默认 minioadmin/minioadmin；避免占用 Netty 的 9001）
+# MinIO（API:9000, 控制台:9002，默认 minioadmin/minioadmin；控制台端口映射到容器 9001）
 docker run -d --name medical-minio -p 9000:9000 -p 9002:9001 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin -v medical-minio-data:/data minio/minio server /data --console-address ":9001"
 ```
 
@@ -143,6 +154,11 @@ Linux/macOS（当前终端会话生效）：
 export DEEPSEEK_API_KEY='你的apikey'
 export DEEPSEEK_BASE_URL='https://api.deepseek.com'
 export DEEPSEEK_MODEL='deepseek-chat'
+export ALIPAY_ENABLED='true'
+export ALIPAY_APP_ID='你的沙盒APPID'
+export ALIPAY_PRIVATE_KEY='你的应用私钥'
+export ALIPAY_PUBLIC_KEY='支付宝沙盒公钥'
+export ALIPAY_RETURN_URL='http://127.0.0.1:5173/payment/result'
 ```
 
 Windows PowerShell（当前窗口生效）：
@@ -150,6 +166,11 @@ Windows PowerShell（当前窗口生效）：
 $env:DEEPSEEK_API_KEY="你的apikey"
 $env:DEEPSEEK_BASE_URL="https://api.deepseek.com"
 $env:DEEPSEEK_MODEL="deepseek-chat"
+$env:ALIPAY_ENABLED="true"
+$env:ALIPAY_APP_ID="你的沙盒APPID"
+$env:ALIPAY_PRIVATE_KEY="你的应用私钥"
+$env:ALIPAY_PUBLIC_KEY="支付宝沙盒公钥"
+$env:ALIPAY_RETURN_URL="http://127.0.0.1:5173/payment/result"
 ```
 
 Windows（永久写入用户环境变量，需重开终端/IDE）：
@@ -157,6 +178,11 @@ Windows（永久写入用户环境变量，需重开终端/IDE）：
 setx DEEPSEEK_API_KEY "你的apikey"
 setx DEEPSEEK_BASE_URL "https://api.deepseek.com"
 setx DEEPSEEK_MODEL "deepseek-chat"
+setx ALIPAY_ENABLED "true"
+setx ALIPAY_APP_ID "你的沙盒APPID"
+setx ALIPAY_PRIVATE_KEY "你的应用私钥"
+setx ALIPAY_PUBLIC_KEY "支付宝沙盒公钥"
+setx ALIPAY_RETURN_URL "http://127.0.0.1:5173/payment/result"
 ```
 
 #### 方式 B：本地私有配置文件（不推荐但可用）
@@ -173,6 +199,13 @@ ai:
 ```
 
 > 该文件会被 `application-local.yml` 以 `spring.config.import` 方式可选加载；没有这个文件也能启动，但 AI 接口会返回 `code=9001`（服务不可用）。
+
+### 2.2.1 支付沙盒说明
+- 本地联调路径是：创建挂号 -> 返回 `PAYING` -> 拉起支付宝页支付 -> 浏览器回跳 `http://127.0.0.1:5173/payment/result` -> 前端主动调用后端查单确认结果。
+- 如果你只有本地 `127.0.0.1` 地址，没有公网回调域名，也能完成联调；这时主要依赖回跳页主动查单，不依赖支付宝异步通知。
+- 真实拉起沙盒支付页至少需要：`ALIPAY_ENABLED=true`、`ALIPAY_APP_ID`、`ALIPAY_PRIVATE_KEY`、`ALIPAY_PUBLIC_KEY`。
+- 如果这些参数没配，后端会明确返回“支付宝沙盒配置不完整，无法发起支付”，这是保护逻辑，不是代码异常。
+- 如果你有公网域名或内网穿透地址，可以额外配置 `ALIPAY_NOTIFY_URL=https://你的域名/treat/pay/alipay/notify`，让支付成功后由支付宝异步回调落单。
 
 ### 2.3 启动命令
 #### 推荐方式（跨平台最稳）：使用 `SPRING_PROFILES_ACTIVE`
@@ -213,6 +246,7 @@ Linux/macOS：
 
 > local profile 当前使用 MySQL（见 `medical-back/src/main/resources/application-local.yml`）；请确保你配置的 MySQL 可用并已导入表结构/数据。
 > 如果你的数据库是旧版本表结构，先执行：`scripts/20260312_registration_person_key.sql`
+> 如果你要验证支付宝沙盒，另外执行：`scripts/20260320_registration_payment_order.sql`
 > 当前挂号创建依赖真实 Redis 和 RabbitMQ；Redis 内存兜底不覆盖这条链路。
 > 另外，local profile 已开启排班补齐与挂号状态对账（`app.schedule.enabled=true`、`app.registration.reconcile-enabled=true`）；如果你只想“最小启动”而不跑这些后台补偿逻辑，可以在 local 配置里把它们关掉。
 > local profile 下前端可直接走 `GET /front/loginAndOut/devToken` 获取本地 JWT。患者端建议使用 `type=1`；医生端与管理员端建议使用 `type=2`。当前种子数据没有可用的 `type=3` 管理员账号，因此管理员前端本地联调默认复用医生账号上下文。
@@ -227,7 +261,7 @@ Linux/macOS：
 local profile 默认 MinIO 配置为：
 - `endpoint=http://localhost:9000`
 - `bucket=medical`
-- 控制台：`http://localhost:9002`（默认 `minioadmin/minioadmin`，避免占用 Netty 的 `9001`）
+- 控制台：`http://localhost:9002`（默认 `minioadmin/minioadmin`，映射容器控制台 `9001`）
 
 建议先运行：`scripts/start-minio.bat`，或用 Docker 命令启动 MinIO（见上文）。
 
@@ -321,15 +355,15 @@ npm run dev
 - 该前端通过 Vite 代理把 `/api/*` 转发到 `http://localhost:8080/treat`（见 `medical-front-doctor/back-vue-master/vite.config.js`）。
 
 ## 6. WebSocket（可选）
-- 默认走 Netty WS：`ws://localhost:9001/netty/ws/chat/{roomId}`
+- 默认走 Spring WebSocket：`ws://localhost:8080/treat/ws/chat/{roomId}`
 
 前端可通过环境变量覆盖（可选）：
-- `VITE_WS_BASE=localhost:9001`
-- `VITE_WS_PATH=/netty/ws/chat`
+- `VITE_WS_BASE=localhost:8080`
+- `VITE_WS_PATH=/treat/ws/chat`
 
 后端开关：
-- `netty.ws.enabled=true/false`（是否启用 Netty WS 服务）
-- `netty.ws.patient-response-timeout-minutes=3`（患者响应超时分钟数）
+- `app.websocket.path=/ws/chat`
+- `app.websocket.patient-response-timeout-minutes=3`
 
 验证清单（端到端）：
 - 医生发起问诊 -> 患者弹窗 -> 接受 -> 正常聊天收发。

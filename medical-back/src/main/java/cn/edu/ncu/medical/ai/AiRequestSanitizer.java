@@ -1,6 +1,7 @@
 package cn.edu.ncu.medical.ai;
 
 import cn.edu.ncu.medical.entity.dto.DoctorAiRequest;
+import cn.edu.ncu.medical.entity.dto.TriageChatRequest;
 import cn.edu.ncu.medical.entity.dto.TriageRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -65,6 +66,24 @@ public class AiRequestSanitizer {
         return new AiSanitizeResult<>(sanitized, meta);
     }
 
+    public AiSanitizeResult<TriageChatRequest> sanitizeTriageChatRequest(TriageChatRequest request) {
+        AiSanitizeMeta meta = new AiSanitizeMeta();
+        TriageChatRequest sanitized = new TriageChatRequest();
+        if (request == null) {
+            return new AiSanitizeResult<>(sanitized, meta);
+        }
+
+        sanitized.setSessionId(sanitizeSessionId(request.getSessionId()));
+        sanitized.setAge(request.getAge());
+
+        String message = sanitizeText(request.getMessage(), properties.getMaxDescriptionChars(), meta);
+        String gender = sanitizeText(request.getGender(), properties.getMaxGenderChars(), meta);
+        sanitized.setMessage(message);
+        sanitized.setGender(gender);
+        meta.setDescriptionLength(length(message));
+        return new AiSanitizeResult<>(sanitized, meta);
+    }
+
     private List<String> sanitizeSymptoms(List<String> symptoms, AiSanitizeMeta meta) {
         if (symptoms == null || symptoms.isEmpty()) {
             meta.setSymptomCount(0);
@@ -118,6 +137,14 @@ public class AiRequestSanitizer {
             meta.setMasked(true);
         }
         return masked;
+    }
+
+    private String sanitizeSessionId(String sessionId) {
+        if (!StringUtils.hasText(sessionId)) {
+            return null;
+        }
+        String trimmed = sessionId.trim();
+        return trimmed.length() > 64 ? trimmed.substring(0, 64) : trimmed;
     }
 
     private int length(String value) {

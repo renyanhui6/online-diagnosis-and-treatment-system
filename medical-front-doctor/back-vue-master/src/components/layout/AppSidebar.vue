@@ -2,7 +2,10 @@
   <el-aside :width="isCollapse ? '64px' : '220px'" class="app-sidebar">
     <div class="logo-container">
       <img src="@/assets/logo.svg" alt="Logo" class="logo" />
-      <h1 class="title" v-show="!isCollapse">{{ title }}</h1>
+      <div class="brand-copy" v-show="!isCollapse">
+        <h1 class="title">{{ title }}</h1>
+        <div class="title-subtitle">{{ isDoctor ? '在线问诊与病历闭环' : '运营治理与基础维护' }}</div>
+      </div>
     </div>
     
     <el-scrollbar>
@@ -46,8 +49,10 @@
     </el-scrollbar>
     
     <div class="sidebar-footer" v-if="!isCollapse">
-      <div class="version">v1.0.0</div>
-      <div class="copyright">© {{ new Date().getFullYear() }} 医院管理系统</div>
+      <div class="footer-card">
+        <div class="version">v1.0.0</div>
+        <div class="copyright">© {{ new Date().getFullYear() }} 医院管理系统</div>
+      </div>
     </div>
   </el-aside>
 </template>
@@ -146,7 +151,9 @@ const activeMenu = computed(() => {
 
 <style scoped>
 .app-sidebar {
-  background: linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
+  background:
+    radial-gradient(circle at top, rgba(59, 130, 246, 0.18), transparent 28%),
+    linear-gradient(180deg, #08101d 0%, #0f172a 52%, #111c2d 100%);
   height: 100vh;
   transition: width 0.3s;
   position: relative;
@@ -157,10 +164,10 @@ const activeMenu = computed(() => {
 }
 
 .logo-container {
-  height: 60px;
+  min-height: 84px;
   display: flex;
   align-items: center;
-  padding: 0 16px;
+  padding: 18px 18px 16px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(10px);
@@ -173,12 +180,23 @@ const activeMenu = computed(() => {
   margin-right: 12px;
 }
 
+.brand-copy {
+  min-width: 0;
+}
+
 .title {
   color: #fff;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
   margin: 0;
+}
+
+.title-subtitle {
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.56);
+  white-space: nowrap;
 }
 
 .sidebar-menu {
@@ -189,19 +207,22 @@ const activeMenu = computed(() => {
 .sidebar-menu :deep(.el-menu-item),
 .sidebar-menu :deep(.el-sub-menu__title) {
   color: rgba(255, 255, 255, 0.65);
-  height: 50px;
-  line-height: 50px;
+  height: 52px;
+  line-height: 52px;
+  margin: 6px 10px;
+  border-radius: 14px;
 }
 
 .sidebar-menu :deep(.el-menu-item.is-active) {
   color: #fff;
-  background: rgba(37, 99, 235, 0.22);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.34), rgba(59, 130, 246, 0.22));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .sidebar-menu :deep(.el-menu-item:hover),
 .sidebar-menu :deep(.el-sub-menu__title:hover) {
   color: #fff;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .sidebar-footer {
@@ -209,11 +230,16 @@ const activeMenu = computed(() => {
   bottom: 0;
   width: 100%;
   padding: 16px;
+}
+
+.footer-card {
   text-align: center;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.48);
   font-size: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 12px;
 }
 
 .version {
@@ -239,7 +265,7 @@ const activeMenu = computed(() => {
 .sidebar-menu :deep(.el-sub-menu__title)::before {
   content: '';
   position: absolute;
-  left: 0;
+  left: 12px;
   bottom: 0;
   width: 0;
   height: 2px;

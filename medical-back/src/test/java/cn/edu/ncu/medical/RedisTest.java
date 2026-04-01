@@ -9,6 +9,8 @@ import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 @SpringBootTest
 public class RedisTest {
 	@Autowired
@@ -21,6 +23,6 @@ public class RedisTest {
 				return connection.ping();
 			}
 		});
-		System.out.println(execute);
+		assertEquals("PONG", execute);
 	}
 }

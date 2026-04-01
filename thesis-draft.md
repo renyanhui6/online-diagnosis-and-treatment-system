@@ -1,224 +1,367 @@
-# 基于 Spring Boot 与 Vue 的在线诊疗系统设计与实现
+# 基于 Spring Boot 与 Vue 的智能在线诊疗系统设计与实现
 
 ## 摘要
-随着互联网医疗的发展，传统线下就诊流程在挂号分流、诊前沟通、诊中协作与诊后追踪等环节逐渐暴露出效率低、排队时间长、信息流转不连续等问题。针对这一类问题，本文围绕“预约挂号、在线问诊、病历留存、处方管理、后台治理”构建了一套在线诊疗系统，并从工程实现与业务稳定性两个层面展开设计。系统以后端 Spring Boot 为核心，结合 MyBatis-Plus 实现业务数据访问，采用 Vue 构建患者端与医生/管理端界面，使用 Redis 与 RabbitMQ 实现挂号高并发预占及异步落库，基于 Netty WebSocket 实现医患问诊实时通信，借助 MinIO 实现图片消息与附件对象存储。
+随着互联网医疗服务不断普及，传统线下诊疗流程中存在的挂号等待时间长、问诊沟通链路割裂、诊疗结果追溯不便等问题日益突出。针对上述问题，本文设计并实现了一套基于 Spring Boot 与 Vue 的智能在线诊疗系统。系统围绕“挂号、问诊、病历/处方”主链路展开，面向患者端、医生端和管理端提供统一的数据与业务支撑，并在高并发挂号和智能辅助问诊两个关键场景中进行了重点优化。
 
-本文的研究重点不只是完成一个可用的 Web 系统，更强调在医疗场景下对关键业务链路进行稳定性治理。针对排班管理，系统设计了“排班模板 + 按日生成排班 + 手动补偿生成”的机制，并提供“仅补缺失”和“补缺失并清理未来无效排班”两种治理模式，以降低定时任务漏执行、模板变更和重复排班带来的数据污染风险。针对挂号环节，提出了基于 Redis Lua 脚本的号源预占方案，将库存扣减、重复提交校验、请求记录写入和过期集合登记合并到原子操作中，再通过 RabbitMQ 异步完成挂号持久化，从而缓解高并发下超卖与重复挂号问题。针对问诊环节，系统统一收敛为 Netty WebSocket 长连接实现，并在房间状态、挂号状态和前端交互之间建立一致性的状态推进机制。
+在后端实现方面，系统采用 Spring Boot、MyBatis-Plus、Redis、RabbitMQ、Spring WebSocket 与 MinIO 构建服务端能力，前端采用 Vue3 与 Element Plus 分别实现患者端和医生/管理端界面。为解决高峰期挂号请求对数据库造成的瞬时压力，本文将挂号创建链路设计为“Redis 预占 + Lua 原子校验 + RabbitMQ 异步持久化 + 失败补偿回滚”的两阶段处理模型，实现了号源防超卖、同一就诊人防重复挂号以及超时回收。为解决在线问诊过程中患者不会描述、医生易漏问、聊天内容难沉淀等问题，本文构建了两个差异化智能体模块：患者端智能分诊挂号 Agent 采用院内业务检索增强的推荐方式，在院内真实科室、医生擅长与未来排班数据约束下生成可执行导诊建议；医生端问诊协作 Agent 采用多角色协作与状态化工作流思路，结合当前问诊上下文、历史病历、处方信息和风险规则，为医生提供缺失项检查、风险提醒、追问规划和病历草稿生成能力。
 
-在实现层面，系统完成了三类用户角色的主要业务功能。患者端支持注册登录、就诊人管理、科室选择、排班查看、在线挂号、问诊确认、在线聊天以及就诊记录查看；医生端支持挂号列表查看、发起问诊、实时聊天、病历填写与处方开具；管理端支持医生管理、患者管理、药品管理、排班模板配置以及排班补偿生成。本文在系统联调过程中对多项真实问题进行了修复，包括排班与挂号字段口径不一致、医生端历史消息字段兼容问题、病历提交时医生身份来源不稳定、患者端刷新后无法继续接受问诊、问诊弹窗显示占位医生信息等，并在最终版本中通过真实接口和页面联调完成验证。
+在测试与联调阶段，本文围绕后端单元测试、真实数据环境下的接口测试以及双前端集成测试进行了系统验证。最终结果表明，系统已完成从挂号、接诊、聊天到病历与处方回看的业务闭环，关键链路在真实数据环境下运行稳定，能够满足毕业设计阶段对功能完整性、业务一致性和可演示性的要求。
 
-测试结果表明，该系统能够稳定支撑在线诊疗核心闭环。实际联调中已完成患者挂号成功创建挂号记录、医生发起问诊、患者确认接诊、医患双向消息通信、医生填写病历、医生开具处方以及患者端查看病历和处方结果等完整流程；管理端医生/患者/排班模板 CRUD 及排班补偿生成也已通过真实接口验证。研究结果说明，将模板化排班治理、基于 Redis 与消息队列的预约控制、以及统一长连接问诊机制结合到同一系统中，可以有效提升在线诊疗业务链路的一致性与可用性。
-
-关键词：在线诊疗系统；预约挂号；排班模板；Redis；RabbitMQ；Netty WebSocket
+**关键词：** 在线诊疗；Spring Boot；Redis；RabbitMQ；WebSocket；RAG；智能体协作
 
 ## Abstract
-With the rapid development of Internet healthcare, conventional offline outpatient processes gradually expose problems such as low scheduling efficiency, long waiting time, fragmented information flow, and weak continuity between registration, consultation, and follow-up. To address these issues, this thesis designs and implements an online diagnosis and treatment system covering appointment registration, online consultation, medical record management, prescription management, and administrative governance. The backend is implemented with Spring Boot and MyBatis-Plus, the patient side and doctor/admin side are developed with Vue, Redis and RabbitMQ are used to support high-concurrency reservation and asynchronous persistence, Netty WebSocket is employed for real-time consultation, and MinIO is used for object storage of image messages and attachments.
+With the rapid development of internet-based medical services, traditional offline diagnosis and treatment processes face several problems, including long registration waiting time, fragmented consultation procedures, and poor traceability of diagnosis results. To address these issues, this thesis designs and implements an intelligent online diagnosis and treatment system based on Spring Boot and Vue. The system focuses on the core business chain of registration, consultation, medical records, and prescriptions, and provides unified support for patients, doctors, and administrators. Special optimizations are introduced for high-concurrency appointment registration and intelligent consultation assistance.
 
-The research focus of this work is not limited to building a functional information system, but further emphasizes the consistency and stability of critical medical workflows. For schedule management, a template-driven generation mechanism is designed, together with compensation generation strategies for missed tasks and future invalid schedule cleanup. For appointment booking, an atomic Redis Lua-based reservation mechanism is introduced to integrate stock deduction, duplicate-submission detection, reservation record creation, and expiration tracking, followed by RabbitMQ-based asynchronous persistence to reduce overselling and duplicate registrations. For online consultation, the system unifies real-time communication on Netty WebSocket and establishes a consistent state transition mechanism among room status, registration status, and frontend interactions.
+On the backend, the system is built with Spring Boot, MyBatis-Plus, Redis, RabbitMQ, Spring WebSocket, and MinIO, while the frontend is implemented with Vue3 and Element Plus for both patient and doctor/administrator portals. To reduce the pressure of burst appointment requests on the database, the registration process is redesigned as a two-stage workflow consisting of Redis pre-reservation, Lua-based atomic validation, RabbitMQ asynchronous persistence, and compensation rollback. To improve online consultation quality, two differentiated intelligent agents are introduced. The patient-side triage agent adopts an internal retrieval-enhanced recommendation strategy and generates executable registration suggestions based on real hospital departments, doctors, and schedules. The doctor-side consultation assistant follows a multi-role collaborative and state-driven workflow, integrating current consultation context, historical medical records, prescription information, and risk rules to provide missing-information checks, risk alerts, follow-up question planning, and structured draft generation.
 
-The system supports three major roles. The patient side provides login, attendant management, department browsing, schedule selection, appointment booking, consultation confirmation, online chat, and record review. The doctor side supports registration viewing, consultation initiation, real-time communication, medical record writing, and prescription generation. The administrative side supports doctor management, patient management, medicine management, schedule template configuration, and compensation generation. During implementation, several practical issues were discovered and fixed, including inconsistent doctor/department data sources, historical-message field incompatibility, unstable doctor identity sources during medical record submission, inability to continue consultation after page refresh, and placeholder doctor information in consultation notifications.
+Comprehensive verification is carried out through backend unit tests, real-data API tests, and frontend integration tests. The results show that the system has completed the full business loop from registration and consultation to medical record and prescription review, and that the key workflows run stably in a real data environment. The system therefore satisfies the requirements of functionality, consistency, and demonstrability for a graduation project.
 
-Real integration tests show that the system can support the core end-to-end workflow of online diagnosis and treatment. The verified flow includes successful appointment creation, consultation initiation, patient acceptance, bidirectional chat, medical record submission, prescription creation, and patient-side record review. Administrative CRUD and schedule compensation generation were also validated through real APIs. The results demonstrate that combining template-based schedule governance, Redis and message-queue-based booking control, and unified WebSocket consultation can significantly improve consistency and robustness in online medical service systems.
+**Keywords:** online diagnosis and treatment; Spring Boot; Redis; RabbitMQ; WebSocket; retrieval-enhanced recommendation; collaborative agent
 
-**Keywords:** online diagnosis and treatment system; appointment registration; schedule template; Redis; RabbitMQ; Netty WebSocket
-
-## 第1章 绪论
+## 第 1 章 绪论
 
 ### 1.1 研究背景
-医疗信息化建设已经从单纯的院内管理逐步演进到面向患者、医生和医院管理者的全流程协同。传统门诊模式下，患者往往需要先线下排队挂号，再根据现场秩序等待问诊，诊疗过程中病历、处方和沟通信息分散在多个环节，导致诊前准备不足、诊中协作效率有限、诊后回溯成本较高。尤其在复诊、常见病咨询、图文问诊和慢病管理等场景中，线下模式无法充分发挥互联网平台在信息聚合、流程自动化和实时交互方面的优势。
+近年来，互联网医疗在预约挂号、在线问诊、远程复诊和健康管理等领域快速发展。与传统诊疗模式相比，在线诊疗系统可以在一定程度上缓解线下排队压力，提升患者获取医疗服务的效率，并为医疗机构提供更连续、可追踪的数据沉淀能力。然而，很多在线医疗系统在实际落地时仍然存在三类典型问题。
 
-与此同时，在线医疗系统的实现并不是简单地把线下业务搬到线上。挂号业务涉及排班模板、号源控制、重复提交与高并发一致性；问诊业务涉及医生发起、患者确认、消息推送、聊天持久化和状态回收；后台治理则涉及模板调整、定时任务补偿和脏数据清理。因此，一个真正可运行的在线诊疗系统，必须在业务流程设计与系统工程实现之间建立紧密联系。
+第一，挂号环节往往存在高峰时段并发冲击。当大量用户在短时间内争抢同一批号源时，若系统仍采用直接同步写库模式，容易出现库存超卖、重复提交、锁竞争严重、响应时间抖动等问题。第二，在线问诊虽然解决了时空限制，但患者表述往往不完整，医生在多轮沟通中也容易因为聊天噪声导致关键信息遗漏；若仅保留聊天记录而缺少结构化沉淀，诊疗结果链路就无法真正闭环。第三，近两年大模型与智能体技术发展迅速，但其在医疗场景中的直接应用并不能简单等同于“接一个聊天机器人”。医疗业务更强调结果的可执行性、过程的可解释性以及边界的可控性，因此必须将智能能力与院内真实业务数据、规则校验和人工确认机制结合起来。
+
+基于以上背景，设计一套兼顾业务闭环、并发稳定性与智能辅助能力的在线诊疗系统，具有较强的现实意义和工程实践价值。
 
 ### 1.2 研究意义
 本文的研究意义主要体现在以下三个方面。
 
-第一，在应用层面，在线诊疗系统可以改善患者预约体验，缩短传统门诊中的低效等待环节，使挂号、问诊与病历留存形成更连续的服务闭环。第二，在工程层面，医疗系统中的挂号与问诊流程天然带有状态机特征和并发一致性要求，适合作为后端业务治理、缓存设计、消息驱动架构与长连接通信的综合实践对象。第三，在研究层面，本文尝试把“排班治理”“预约并发控制”“诊疗状态一致性”作为系统设计核心问题，而不是将系统停留在页面和表结构层面，从而使毕业设计具备一定的工程研究属性。
+（1）在业务层面，本文围绕“挂号—问诊—病历/处方”构建完整闭环，使系统不再停留在简单的预约或聊天工具层面，而是真正支撑诊疗结果落地与患者回看。
 
-### 1.3 国内外研究现状
-从公开的高校毕业设计与教学案例来看，围绕预约挂号、医院管理、门诊排班和医疗问诊的系统设计已经较为常见，但多数实现仍然聚焦于“管理系统式”的增删改查与基础流程演示，较少深入处理高并发预约、状态补偿、长连接收敛以及异常恢复等问题。另一方面，工业界互联网医疗平台在在线问诊、电子处方、患者画像和医生服务调度方面已经形成较成熟的产品形态，但其架构和治理策略通常不完全公开，不适合直接照搬到本科毕业设计中。
+（2）在工程层面，本文针对高并发挂号场景设计了基于 Redis、Lua 与 RabbitMQ 的异步一致性链路，降低数据库瞬时压力，并通过补偿机制保证业务最终一致性。
 
-基于此，本文选取在线诊疗系统作为研究对象，既保留患者端、医生端、管理端三类角色的完整业务流程，又针对排班生成、Redis 预占挂号、RabbitMQ 异步落库、Netty 实时问诊等关键机制进行工程化设计，以实现“功能可运行、逻辑可解释、方案可复现”的研究目标。
+（3）在智能化层面，本文没有将大模型能力作为独立的泛化聊天入口，而是结合在线医疗场景拆分为两个差异化 Agent：患者端 Agent 强调检索增强的导诊推荐，医生端 Agent 强调围绕问诊工作流的协作与质控，从而使智能能力更贴近真实业务。
 
-### 1.4 研究内容
-本文围绕在线诊疗场景，完成以下研究与实现工作：
+### 1.3 研究内容
+本文的核心研究内容包括：
 
-1. 建立患者端、医生端、管理端三类角色的业务模型，明确挂号、问诊、病历、处方和后台治理的业务边界。
-2. 设计排班模板驱动的排班生成方案，构建支持补偿生成和未来无效排班清理的排班治理机制。
-3. 设计基于 Redis Lua 脚本与 RabbitMQ 的挂号请求处理机制，实现号源预占、重复提交控制、异步落库与失败回滚。
-4. 设计基于 Netty WebSocket 的实时问诊机制，统一问诊通知、房间聊天和消息持久化的技术口径。
-5. 完成病历与处方的后续流转，实现患者端对问诊结果的可视化查看。
-6. 在本地真实运行环境中完成核心接口与页面联调，对实际暴露的问题进行修复与回归验证。
+（1）分析在线诊疗系统的业务角色、功能边界与状态流转，建立患者端、医生端与管理端三方协同的数据模型与业务模型。
 
-### 1.5 论文结构安排
-全文共分为七章。第一章介绍研究背景、意义、研究内容与论文结构。第二章介绍系统实现所依赖的关键技术。第三章对系统功能和非功能需求进行分析。第四章给出系统总体设计，包括架构设计、数据设计和关键状态机设计。第五章说明系统关键模块的具体实现。第六章给出测试方案与测试结果分析。第七章对全文工作进行总结，并提出后续改进方向。
+（2）设计排班模板、排班生成、挂号创建与问诊房间管理等核心模块，并实现面向真实号源的业务链路。
 
-## 第2章 关键技术与理论基础
+（3）针对高并发挂号场景，实现“Redis 预占 + Lua 原子校验 + MQ 异步落库 + 失败补偿”的两阶段处理机制。
+
+（4）实现基于 Spring WebSocket 的在线问诊聊天能力，并将问诊结果沉淀为病历与处方数据，实现诊疗结果回看。
+
+（5）围绕 AI 能力构建患者端智能分诊挂号 Agent 与医生端问诊协作 Agent，并完成真实数据环境下的回归验证。
+
+### 1.4 论文结构
+本文共分为七章。
+
+第 1 章为绪论，介绍研究背景、研究意义、研究内容与论文结构。  
+第 2 章介绍系统实现所使用的关键技术。  
+第 3 章从角色、功能和非功能角度分析系统需求。  
+第 4 章给出系统总体设计，包括架构设计、数据模型设计与关键流程设计。  
+第 5 章说明系统详细实现，重点描述高并发挂号、问诊聊天、病历处方与双 Agent 模块。  
+第 6 章给出测试方案、执行过程与测试结果分析。  
+第 7 章总结全文并展望后续优化方向。
+
+## 第 2 章 相关技术与理论基础
 
 ### 2.1 Spring Boot 与 MyBatis-Plus
-Spring Boot 提供了统一的依赖管理、自动配置和快速启动能力，适合构建中小规模但模块完整的后端业务系统。本文以后端服务为中心，将登录认证、排班管理、挂号服务、问诊服务、病历与处方服务统一构建在 Spring Boot 框架之上。MyBatis-Plus 在保留 SQL 可控性的同时提供了常用 CRUD 能力和 Lambda 查询封装，便于在复杂联表场景与简单管理接口之间取得平衡。
+Spring Boot 提供了自动装配、统一配置管理与快速启动能力，适合构建面向业务场景的后端服务。本文使用 Spring Boot 作为系统主框架，将用户认证、排班挂号、问诊聊天、病历处方和 AI 能力统一收敛在同一后端工程中，便于复用拦截器、异常处理、统一返回体和配置体系。
 
-在线诊疗系统中存在大量“管理类接口 + 复杂联表查询”并存的场景。例如，医生端问诊列表既需要按登录医生筛选挂号记录，又需要联表查询患者年龄、联系方式和科室信息；患者端病历列表既需要展示病历摘要，又要在详情中进一步查询处方明细。基于此，系统采用“实体 CRUD 走 MyBatis-Plus，复杂展示走 Mapper XML 联表”的实现策略，以保证查询口径的一致性和可维护性。
+数据库访问层采用 MyBatis-Plus。相比手写大量基础 SQL，MyBatis-Plus 在实体映射、分页查询和基础 CRUD 场景下可以显著减少模板代码，同时保留对自定义 Mapper 的支持，适合本项目这类以业务实体为中心、又需要部分复杂联表查询的系统。
 
-### 2.2 Vue 前端框架
-患者端和医生/管理端前端均采用 Vue 技术栈实现。Vue 的组件化开发模式适合将预约挂号页、问诊页、管理页等复杂界面拆分为职责清晰的视图模块。对于本系统而言，患者端更强调交互连续性和状态提示，例如挂号轮询状态、问诊通知弹窗、病历与处方详情展示；医生/管理端则更强调业务表格、筛选、状态操作和后台治理功能。
+### 2.2 Vue3 与 Element Plus
+前端采用 Vue3 构建。患者端与医生/管理端分别独立部署，但共用类似的接口风格和状态约束。Vue3 的组合式 API 便于按照业务模块拆分页面逻辑，Element Plus 提供了表单、表格、对话框、抽屉等通用组件，能够较快支撑管理端基础 CRUD、患者端列表与详情回看、医生端问诊协作弹窗等页面实现。
 
-### 2.3 Redis 与 RabbitMQ
-Redis 在本系统中承担两类职责。第一类是登录态与缓存管理，用于开发调试和业务数据加速；第二类是挂号高并发控制，用于实现号源预占、重复提交判定、预约处理中间态记录以及超时释放。为了保证多个操作的一致性，系统把“库存扣减 + 重复提交判定 + 预占记录写入 + 过期集合登记”组合为 Lua 脚本的一次原子执行。
+### 2.3 Redis、Lua 与 RabbitMQ
+Redis 是本文高并发挂号链路的关键组件。在挂号请求进入数据库之前，系统先利用 Redis 存储号源预占状态、中间请求状态和幂等约束信息。为了保证库存扣减、重复校验、预占记录写入与过期索引登记的一致性，本文将这些操作封装进 Lua 脚本一次完成，从而避免多次网络交互引起的竞态问题。
 
-RabbitMQ 用于挂号持久化的异步解耦。挂号接口接收到请求后，并不直接同步写入数据库，而是先在 Redis 中完成预占，再将预约消息投递到消息队列，由消费者完成 registration 落库和 schedule 已预约数同步。这样做的主要目的是降低同步请求链路的写放大问题，并为失败重试和异常回滚预留补偿空间。
+RabbitMQ 主要用于异步削峰。挂号预占成功后，请求并不会立刻阻塞等待数据库事务完成，而是先返回处理中状态，同时将后续持久化任务投入消息队列，由消费端完成正式落库。这样既能够提升前台响应速度，也可以减轻数据库在高并发场景下的瞬时压力。
 
-### 2.4 Netty WebSocket
-Netty 是一个高性能异步事件驱动网络框架，适合构建长连接和实时消息系统。在线问诊本质上属于双向消息交互场景，HTTP 轮询不仅交互延迟高，而且难以处理医生发起问诊、患者确认响应和实时聊天广播等需求。因此本文采用 Netty WebSocket 作为统一的实时通信方案，房间路径固定为 `ws://host:9001/netty/ws/chat/{roomId}`，患者和医生的长连接通知则使用 `patient_{userId}` 与 `doctor_{userId}` 标识。
+### 2.4 Spring WebSocket 与 MinIO
+在线问诊聊天使用 Spring 原生 WebSocket 实现，统一接入路径为 `/treat/ws/chat/{roomId}`。系统通过握手拦截器完成用户信息解析，并利用房间标识与用户标识完成消息广播与通知推送。与早期多套实时通信方案并存相比，统一到 Spring WebSocket 后，前后端连接路径、消息模型和状态同步逻辑都更加收敛。
 
-### 2.5 MinIO 对象存储
-问诊过程中存在图片消息、上传附件等非结构化数据。若将这类文件直接存入数据库，不仅会增加数据库负担，也不利于后续扩展。系统采用 MinIO 作为对象存储服务，将上传文件存入对象存储，再将文件 URL 作为消息内容或附件引用写回业务表中，实现结构化数据与非结构化数据的解耦。
+MinIO 用于对象存储。聊天图片、基础图片资源等文件通过统一上传接口写入 MinIO，在消息记录或页面明细中仅保存访问地址。这样可以避免将大文件直接放入数据库，同时提升后续回放与回看的便利性。
 
-## 第3章 系统需求分析
+### 2.5 LangChain4j 与智能体协作
+本文的 AI 能力基于 LangChain4j 接入。与直接在业务代码中拼接 prompt 相比，LangChain4j 支持通过接口式 Agent、系统消息、工具调用与消息记忆窗口构建更清晰的智能服务层。
+
+需要说明的是，本文的患者端 Agent 与医生端 Agent 虽然都使用了 LangChain4j，但二者技术路线并不相同。患者端 Agent 更接近检索增强推荐系统，强调基于院内真实业务数据组织上下文后再做推荐；医生端 Agent 则更接近状态化协作工作流，强调当前问诊上下文、历史病历、风险规则和结构化输出之间的协同。本文在医生端 Agent 中借鉴了 LangGraph 式的共享状态与节点推进思想，但正式实现仍基于 Java 主工程完成，并未额外拆出 Python 原生 LangGraph 服务。
+
+## 第 3 章 系统需求分析
 
 ### 3.1 角色需求分析
 
 #### 3.1.1 患者端需求
-患者端需要完成注册登录、就诊人管理、科室浏览、排班查看、挂号提交、挂号状态查询、问诊确认、在线聊天以及病历与处方查看等功能。患者对系统最核心的需求并不是“能看到界面”，而是“挂号是否真实成功、医生是否真实发起问诊、诊后信息是否能够回看”。
+患者端用户的核心需求包括注册登录、维护就诊人、查看科室与排班、创建挂号、进入问诊、查看病历与处方以及使用 AI 辅助导诊。系统需要保证患者看到的推荐结果与真实可挂号源一致，且在挂号成功后能继续进入问诊与结果回看链路。
 
 #### 3.1.2 医生端需求
-医生端需要根据挂号列表开展接诊工作，包括查看当日与历史问诊、发起问诊、等待患者确认、进入聊天房间、编写病历、开具处方和结束问诊。医生端的业务重心在于“围绕挂号记录开展处理”，而不是单独维护排班视图，因此本文在功能收敛阶段移除了医生端独立排班页，统一以挂号列表和问诊房间作为医生侧主要工作入口。
+医生端用户需要处理接诊、发起问诊、在线聊天、填写病历、开具处方以及查看历史病历信息。医生在使用系统时最关注的是问诊上下文是否完整、状态流转是否清晰，以及诊疗结果是否能够准确绑定到当前患者和当前问诊记录上。
 
 #### 3.1.3 管理端需求
-管理端负责基础资料和业务规则治理，包括医生管理、患者管理、药品管理、科室管理、排班模板管理以及补偿生成。管理端需求中最具治理特征的是排班模板与补偿生成，因为这部分决定了前台是否有排班可挂以及错过定时任务后如何恢复。
+管理端主要负责科室、医生、药品、排班模板等基础主数据治理。本文并未将复杂统计报表作为核心研究内容，而是保留基础 CRUD 能力，使管理端可以为患者端与医生端提供一致的数据支撑。
 
 ### 3.2 功能需求分析
-结合项目实现，系统主要功能可划分为五类：
+结合系统业务目标，本文将功能需求归纳为以下几类。
 
-1. 账户与身份功能：注册、登录、获取用户信息、找回密码。
-2. 排班与挂号功能：排班模板维护、排班生成、号源展示、挂号提交、预约状态轮询。
-3. 在线问诊功能：医生发起、患者确认、房间聊天、图片消息、超时处理。
-4. 诊疗结果功能：病历保存、处方生成、患者记录查看。
-5. 后台治理功能：医生/患者/药品 CRUD、补偿生成、未来无效排班清理。
+（1）用户与权限模块：实现注册、登录、找回密码、基础权限识别以及本地联调场景下的 dev token 支撑。
+
+（2）排班与挂号模块：实现模板管理、排班生成、排班查询、挂号创建、挂号详情与挂号状态推进。
+
+（3）问诊聊天模块：实现医生发起问诊、患者接收/拒绝问诊、房间状态流转、WebSocket 实时聊天与消息持久化。
+
+（4）病历与处方模块：实现医生端病历录入、处方创建，患者端病历列表与处方明细回看。
+
+（5）AI 模块：实现患者端智能分诊挂号 Agent 与医生端问诊协作 Agent，前者服务导诊推荐，后者服务问诊协作和结果沉淀。
 
 ### 3.3 非功能需求分析
-本系统除功能需求外，还需要满足以下非功能要求：
+系统除功能需求外，还需满足以下非功能要求。
 
-1. 一致性要求：挂号状态、问诊房间状态和前端按钮显示必须保持一致。
-2. 并发安全要求：同一真实就诊人对同一排班不能重复成功挂号，号源不能超卖。
-3. 可恢复要求：当系统错过定时任务或服务中断时，应能通过补偿机制恢复排班和挂号状态。
-4. 可维护要求：医生、患者、科室、模板等后台数据应支持真实 CRUD，而非仅提供展示壳子。
-5. 可测试要求：系统核心链路应能在本地真实环境中完成编译、启动、接口联调和页面联调。
+（1）一致性要求：挂号链路必须避免号源超卖与重复挂号；问诊、病历与处方之间的状态和归属必须保持一致。
 
-### 3.4 业务流程分析
-系统的核心业务流程可概括为：患者登录后选择科室与医生，查看某日排班和剩余号源，提交挂号请求；系统完成预约预占与落库后，医生端在适当时机发起问诊；患者确认后进入在线聊天；问诊结束后医生填写病历和处方，患者最终在记录页查看诊疗结果。与传统“页面跳转型”系统不同，本系统在挂号、发起问诊和房间状态之间引入了显式状态机，这也是系统设计的关键。
+（2）可用性要求：在线模型不可用时，AI 功能不能整体失效，因此需要保留本地回退逻辑；排班与挂号等链路需要补偿式恢复能力。
 
-## 第4章 系统总体设计
+（3）安全性要求：病历归属、医生身份和问诊上下文访问权限必须由后端校验，不允许完全依赖前端提交的敏感标识。
+
+（4）可扩展性要求：系统后续应具备继续扩展统计报表、更强检索能力和更明确状态图工作流的可能。
+
+### 3.4 关键难点分析
+
+#### 3.4.1 高并发挂号的一致性问题
+在号源有限的情况下，多个用户可能同时请求同一排班。如何在保证快速响应的同时避免超卖、重复提交和数据库锁竞争，是本系统最重要的后端工程难点之一。
+
+#### 3.4.2 在线问诊状态同步问题
+问诊过程中会涉及挂号状态、房间状态、聊天消息、医生结束问诊、患者接受/拒绝等多类状态变化。若这些状态由前后端各自维护，很容易出现列表状态与房间状态不一致的问题。
+
+#### 3.4.3 智能能力的业务落地问题
+医疗场景对智能输出的要求并不是“能聊天”，而是“有依据、可执行、可控”。因此需要将 AI 与真实业务数据、风险规则、人工确认结合起来，而不能简单依赖大模型自由生成。
+
+#### 3.4.4 诊疗结果闭环问题
+若系统只做到挂号和聊天，则其本质仍然更接近在线沟通工具。只有把病历和处方真正沉淀下来，并让患者能在诊后回看结果，系统才形成完整闭环。
+
+## 第 4 章 系统总体设计
 
 ### 4.1 系统总体架构设计
-系统采用前后端分离架构。前端分为患者端与医生/管理端两套 Vue 应用，后端采用 Spring Boot 统一提供 REST 接口与 WebSocket 入口，底层配合 MySQL、Redis、RabbitMQ 与 MinIO 构成完整运行环境。
+系统整体采用前后端分离架构。患者端前端负责挂号、就诊记录回看与 AI 导诊；医生/管理端前端负责接诊、问诊、病历处方和基础主数据管理；后端负责统一鉴权、状态管理、业务编排、数据持久化与 AI 服务调度。
 
-从架构职责划分看，患者端负责预约和就诊结果查看，医生端负责问诊执行，管理端负责数据治理；后端则按模块拆分为认证与用户模块、排班与挂号模块、问诊与聊天模块、病历与处方模块以及后台管理模块。Redis 主要服务于挂号预占和缓存，RabbitMQ 主要服务于预约异步持久化，Netty 主要服务于实时消息推送，MinIO 主要服务于文件对象存储。
+从实现上看，系统可分为四层：
 
-### 4.2 数据设计
-结合本系统的实现范围，核心数据实体包括：
+（1）展示层：患者端与医生/管理端页面。  
+（2）接口层：统一 Controller 入口与 WebSocket 接入层。  
+（3）业务层：挂号、问诊、病历、处方与 AI 服务实现。  
+（4）基础设施层：MySQL、Redis、RabbitMQ、MinIO 与 WebSocket 会话管理。
 
-1. `system_user`：存储账号、密码、类型、邮箱和状态等信息。
-2. `doctor_detail`：存储医生真实姓名、职称、科室、简介和价格等信息。
-3. `patient_attendant`：存储就诊人实名信息、手机号、家庭住址等信息。
-4. `sub_department`：存储子科室名称及描述，用于医生归属和患者选科。
-5. `schedule_template`：存储医生每周出诊模板、上午/下午号源上限及启用状态。
-6. `schedule`：存储实际日期排班、当前已预约数、排班快照等执行态信息。
-7. `registration`：存储挂号记录、挂号状态、请求令牌与真实就诊人标识。
-8. `room`：存储问诊房间及其状态。
-9. `chat_message`：存储文本消息、图片消息及发送者信息。
-10. `medical_record` 与 `prescription`：存储问诊结果。
+这种架构有两个优点。其一，业务逻辑集中在后端，可统一处理权限、状态流转与异常补偿；其二，患者端与医生端共享一套后端能力，便于形成完整闭环。
 
-### 4.3 排班生成机制设计
-排班模块采用“模板定义规则，排班存储执行结果”的设计。`schedule_template` 描述医生每周几出诊以及上午、下午各开放多少号；`schedule` 则是面向患者和挂号系统可直接使用的排班实例。这样做有两个好处：一是前台查排班时不需要每次动态计算；二是挂号库存、预约计数和后续统计都可以直接围绕 `scheduleId` 进行。
+### 4.2 核心数据模型设计
+系统核心实体包括：
 
-在此基础上，系统增加了补偿生成机制。普通补偿模式仅补充缺失排班，不删除任何未来计划；增强模式则在补缺失之前先清理“未来无效排班”，包括重复排班、失效模板对应排班和未来快照不一致但尚未被挂号使用的排班。该设计的核心思想是：未来排班属于可收敛计划，过去排班属于业务历史，不能简单按当前模板反向删除。
+（1）`system_user`：保存账号、密码、角色、状态等登录信息。  
+（2）`doctor_detail`：保存医生基础资料、真实姓名、所属子科室等。  
+（3）`patient_attendant`：保存就诊人姓名、身份证号、联系电话与性别等信息。  
+（4）`department` 与 `sub_department`：表示科室与子科室结构。  
+（5）`schedule_template` 与 `schedule`：分别表示按周模板和实际排班。  
+（6）`registration`：表示挂号主记录。  
+（7）`registration_person_lock`：表示同一就诊人在同一排班下的最终锁定关系。  
+（8）`room` 与 `chat_message`：表示问诊房间与聊天消息。  
+（9）`medical_record` 与 `prescription`：表示病历与处方结果。  
+（10）`drug`：表示药品主数据。
 
-### 4.4 预约状态机设计
-系统中存在两层状态机。第一层是预约预占状态机，用于解决高并发一致性问题，包括 `PENDING`、`CONFIRMED` 和 `ROLLED_BACK` 三个状态；第二层是业务挂号状态机，用于表达患者可见和医生可见的业务流程，包括 `PAID(1)`、`QUEUING(2)`、`WAITING_CONFIRM(7)`、`IN_PROGRESS(3)`、`COMPLETED(4)`，以及 `SUSPENDED(5)`、`RESUMED(6)`、`INVALID(8)` 等异常与恢复状态。
+其中，`medical_record` 在当前版本中保持轻量设计，核心字段集中在病历描述、患者、医生与处方状态上，以支撑诊疗结果闭环而非复杂电子病历结构化建模；`prescription` 与 `drug` 通过药品主数据联表补齐名称、价格、单位等展示信息。
 
-将技术状态机与业务状态机拆开设计的原因在于，两者解决的问题不同。前者关注缓存、消息投递、回滚和重试；后者关注医生接诊、患者确认和页面按钮语义。如果将二者混合，状态语义会同时承载业务含义与基础设施异常，导致系统复杂度急剧增加。
+### 4.3 关键状态设计
+挂号状态设计为：0 待支付、1 已支付、2 排队中、3 问诊中、4 已完成、5 暂时挂起、6 已回归、7 等待患者确认、8 失效。本文主要验证的核心链路集中在已支付、排队中、等待患者确认、问诊中、已完成和失效几个状态之间的推进。
 
-### 4.5 问诊通信设计
-问诊通信统一基于 Netty WebSocket 实现。医生发起问诊后，系统根据挂号记录创建房间，将房间状态置为等待确认，并向患者长连接发送 `consultation_request` 消息。患者接受后，房间状态推进到“问诊中”，挂号状态同步推进到 `IN_PROGRESS`；若患者拒绝或超时未响应，则进入挂起或失效分支。聊天消息统一走“消息解析 -> 数据库存储 -> 房间广播”的处理路径，文本和图片消息在前后端都走同一条归口逻辑。
+房间状态与聊天状态则围绕等待确认、问诊中、拒绝/超时和结束几个阶段组织。通过将挂号状态与房间状态的推进统一收敛在后端处理，可以避免前端各自推断状态引起的语义错位。
 
-## 第5章 系统实现
+### 4.4 核心业务流程设计
 
-### 5.1 认证与用户模块实现
-系统支持前后端分离的登录认证。前端登录成功后将令牌写入本地存储，并通过请求拦截器放入 `access-key` 请求头。后端根据登录态返回当前用户信息。为了适配本地联调，系统还提供了开发模式下的 DevToken 能力，用于快速切换不同测试用户并完成真实多角色调试。
+#### 4.4.1 挂号流程
+挂号创建不直接进入数据库，而是先利用 Redis 进行库存预占与重复校验，再由消息队列异步驱动正式持久化。持久化完成后，前端通过 token 查询最终状态。
 
-### 5.2 管理端真实 CRUD 实现
-管理端实现了医生管理、患者管理、药品管理与排班模板管理等真实 CRUD 功能。以医生管理为例，创建医生并不是单表插入，而是先创建 `system_user`，再创建对应的 `doctor_detail`；删除时则需要同步清理登录态并逻辑删除医生资料。患者管理同样包括账号信息与主就诊人信息的联合维护。实际联调中，本文已通过接口验证医生与患者的创建、详情查询、更新、状态修改和删除闭环均可执行成功。
+#### 4.4.2 问诊流程
+医生基于挂号记录发起问诊，系统创建房间并通知患者。患者接受后进入聊天阶段；若患者拒绝或超时未接受，则系统自动回收状态并将挂号推进到挂起或后续失效逻辑。
 
-### 5.3 排班模板与补偿生成实现
-排班模板接口支持分页查询、创建、更新、删除和按医生筛选。生成器根据日期范围扫描启用模板，并以“医生 + 日期 + 时段”为幂等粒度判断是否已存在排班。若不存在则创建 `schedule`，若存在则跳过。对于补偿模式，生成器可根据管理员选择分别执行“仅补缺失”和“补缺失并清理未来无效”。
+#### 4.4.3 病历与处方流程
+问诊结束后，医生填写病历并创建处方。处方与病历通过 `medicalRecordId` 绑定，病历主记录上的处方状态字段同步更新。患者端随后可以在就诊记录页查看病历摘要和处方明细。
 
-这部分实现的难点不在于单次插入，而在于幂等性和治理边界。为避免模板变更和任务重跑造成重复排班，系统在生成前优先做同日同医生同时段检查；为避免后台任务隐式删除未来计划，增强清理模式被设计为管理员显式触发，而不是定时任务默认行为。
+### 4.5 双 Agent 模块设计
 
-### 5.4 Redis 与 RabbitMQ 挂号链路实现
-挂号接口接收到请求后，先对就诊人合法性、排班合法性和号源状态进行校验。随后系统使用真实就诊人身份生成 `personKey`，调用 Redis Lua 脚本完成库存扣减、重复提交判定、预占记录写入和过期集合登记，并返回预约请求 `token`。前端使用该 `token` 轮询挂号状态；后台消费者接收消息后完成 `registration` 落库，并将 Redis 状态从 `PENDING` 推进到 `CONFIRMED`。
+#### 4.5.1 患者端智能分诊挂号 Agent
+患者端 Agent 面向“挂什么科”的问题。其核心目标不是提供开放式医学问答，而是结合院内真实科室、子科室、医生擅长与未来排班数据生成可执行推荐。系统在设计上优先使用院内业务数据，并在必要时补充外部知识；若在线模型不可用，则退回本地规则与评分逻辑，保持导诊功能可用。
 
-与传统同步落库方案相比，这种实现方式虽然增加了 Redis 和消息队列的协调复杂度，但显著提升了高并发场景下的安全性和可恢复性。若持久化失败，系统会把状态回滚为 `ROLLED_BACK` 并释放号源；若请求长时间未完成，则通过过期扫描任务释放预占库存。
+#### 4.5.2 医生端问诊协作 Agent
+医生端 Agent 面向“如何围绕当前问诊过程补全信息、识别风险并沉淀结构化结果”的问题。当前实现通过上下文加载、历史病历读取、风险规则检查、缺失项分析、追问建议和病历草稿生成几个环节组成协作链路。它并不自动替医生做最终诊断或开药，而是强调 human-in-the-loop，即由医生最终确认。
 
-### 5.5 在线问诊模块实现
-在线问诊模块由房间管理、通知推送、聊天消息和状态同步四部分构成。医生端发起问诊时，后端根据挂号记录反查真实医生和患者身份，不再信任前端传来的医生 ID 和患者 ID；患者端接收到问诊请求后，既可以通过实时弹窗操作，也可以在“我的预约”页对 `WAITING_CONFIRM` 状态记录进行接受或拒绝，从而避免刷新页面导致流程中断。
+## 第 5 章 系统详细实现
 
-在实现过程中，系统还对通知内容做了统一治理。早期版本的重新接诊通知只推送“医生”“科室”“主治医师”等占位信息，患者端弹窗虽然能出现，但缺少真实上下文。后续通过在 `ChatController` 中统一补齐 `doctorName`、`departmentName` 和 `doctorTitle`，患者端实时通知已经能正确展示真实医生信息。
+### 5.1 用户认证与基础角色能力实现
+系统通过 `system_user` 与角色字段区分患者、医生和管理员。后端统一提供登录、注册、找回密码与用户信息查询接口，本地联调环境下允许通过 dev token 快速模拟指定用户登录，从而降低前后端联调成本。
 
-### 5.6 病历与处方模块实现
-问诊结束后，医生在聊天页或问诊管理页填写病历并开具处方。病历接口在最终版本中改为根据登录态和挂号记录推导真实医生身份，避免因前端状态漂移造成病历所属医生错误。患者端就诊记录页则支持查看病历摘要和处方明细，能够展示药品名称、数量、单位、单价及处方属性，从而形成诊后可回溯闭环。
+需要强调的是，本地联调模式虽然放宽了严格鉴权，但并未放弃后端对关键归属的校验。例如病历录入不会直接信任前端传入的 doctorId，而是根据当前登录态的 userId 反查真实 doctorId，再落入病历主记录中。这一设计在第四工期联调中起到了关键作用，避免了病历挂错医生归属的问题。
 
-## 第6章 系统测试与结果分析
+### 5.2 排班模板与补偿生成实现
+排班模板以医生、日期规则、时段和号源上限为核心字段。系统支持按模板批量生成未来排班，并在生成前做幂等检查，防止同一医生同一日期同时段重复生成记录。管理端还提供补偿生成入口，用于在模板调整或服务错过定时点后重建未来排班。
+
+将“模板生成”和“补偿生成”同时纳入系统的原因在于，实际业务环境中不能假设定时任务永远正常执行。只有允许基于当前模板重建未来排班，系统才具备基本的恢复能力。
+
+### 5.3 基于 Redis、Lua 与 RabbitMQ 的高并发挂号实现
+本文高并发挂号链路的核心设计为两阶段处理模型。
+
+第一阶段为 Redis 预占。系统在收到挂号请求后，会先根据排班 ID、就诊人信息与请求上下文构造预占键和幂等键，并通过 Lua 脚本一次性完成以下操作：检查库存是否充足、检查是否为重复请求、扣减可用库存、写入预占记录、将请求加入过期索引集合。由于这些步骤在 Redis 内部一次执行，因此可以保证原子性。
+
+第二阶段为 MQ 异步持久化。预占成功后，系统立即返回处理中 token，同时将持久化任务投递到 RabbitMQ。消费端收到消息后，执行正式数据库写入：创建 `registration` 记录、写入 `registration_person_lock` 记录，并确认结果。如果持久化失败或消息投递失败，系统会回滚 Redis 预占状态并归还库存；若请求长时间未完成，则由过期扫描任务触发超时回收。这一机制的关键不在于“用了队列”，而在于“异步削峰 + 最终一致性 + 补偿回滚”三者协同工作。
+
+在测试中，系统已经验证了三类典型情况：一是挂号成功后继续支付并完成后续问诊链路；二是挂号进入待支付后被取消，能够正确关闭支付单并恢复库存；三是同一就诊人在同一排班下重复发起请求时，系统能够返回相同的处理中 token 或阻断重复创建，从而实现幂等保护。
+
+### 5.4 基于 Spring WebSocket 的在线问诊聊天实现
+问诊聊天模块统一采用 Spring 原生 WebSocket 实现。其接入路径为 `/treat/ws/chat/{roomId}`，系统在握手阶段解析用户身份，并通过会话注册表维护 doctor 与 patient 的在线会话。
+
+医生发起问诊后，系统会基于挂号记录创建或重建房间，并把挂号状态推进到等待患者确认。患者接受问诊后，挂号状态更新为问诊中，房间状态同步推进，双方即可进入聊天。聊天消息既支持文本消息，也支持文件上传后写入对象存储的图片消息。无论消息来自 WebSocket 还是 REST 补充接口，最终都统一写入 `chat_message` 表并按房间广播，以保证后续回看时的数据完整性。
+
+与单纯“能发消息”相比，本文更关注问诊状态与消息状态的统一。早期联调中曾出现“房间已经进入问诊中，但挂号列表仍显示排队中”的错位问题。为解决该问题，本文将状态推进集中到后端统一处理，前端只负责展示，不参与业务状态推断。
+
+### 5.5 患者端智能分诊挂号 Agent 实现
+患者端智能分诊挂号 Agent 位于 AI 模块的第一条主线。该 Agent 的目标是帮助患者在挂号前快速收集症状、识别明显风险并推荐合适科室。
+
+从实现方式上看，本文并未将其设计为完全自由生成的聊天机器人，而是采取“院内业务检索增强 + 结构化输出约束”的方式。具体做法包括：
+
+（1）优先使用院内真实业务数据，如科室、子科室、医生擅长和未来排班情况，形成候选知识集合。  
+（2）结合年龄、性别、症状描述与多轮追问结果，对候选科室进行过滤与排序。  
+（3）将候选结果组织成结构化上下文后交给在线 Agent 生成最终推荐。  
+（4）若在线模型不可用，则由本地回退逻辑完成风险识别、信息不足追问和候选科室评分。
+
+需要说明的是，本文中的 RAG 更侧重业务检索增强而非独立向量数据库部署。其核心价值在于让推荐结果以院内真实资源为基础，而不是让模型直接凭常识给出脱离业务约束的推荐答案。因此，患者端 Agent 的亮点在于“推荐结果可执行”，而非“模型回答更像医生”。
+
+### 5.6 医生端问诊协作 Agent 实现
+医生端问诊协作 Agent 是本文智能模块的第二条主线，其目标是在问诊过程中辅助医生完成信息补全、风险识别和病历沉淀。
+
+当前实现通过 LangChain4j 统一封装，结合工具调用与本地规则，形成以下几个协作环节：
+
+（1）加载当前问诊上下文，包括房间、挂号、患者基本信息、医生信息、聊天记录和已有病历。  
+（2）检索历史病历与历史处方信息，用于复诊连续性判断。  
+（3）基于规则检查高风险信号，例如胸痛、呼吸困难、高热、出血和神经系统异常等。  
+（4）根据当前信息缺失情况生成下一轮追问建议。  
+（5）生成主诉草稿、现病史草稿和结构化病历草稿，供医生回填。
+
+从设计思想上看，该 Agent 更接近一个面向问诊工作流的协作系统。它不是简单地读取聊天记录后做一次摘要，而是沿着“上下文整理—历史检索—风险检查—缺失项分析—追问规划—病历草稿生成”的流程逐步推进。因此，本文将其描述为借鉴 LangGraph 风格的状态化工作流设计：虽然正式实现仍在 Java 主工程中完成，但其核心思想是围绕共享上下文推进多个协作节点。
+
+在记忆设计方面，当前系统已经具备两层基础能力。其一是短期记忆，即当前房间、当前聊天摘要、当前缺失项和当前草稿等会话级上下文；其二是长期记忆，即基于历史病历、历史处方与历史问诊结果构建的跨会话信息检索能力。本文在实现中并未额外引入独立的长期记忆画像表，而是依托已有业务数据完成长期信息补充，这种做法更符合当前毕业设计阶段的实现边界，也更真实可控。
+
+### 5.7 病历与处方模块实现
+病历与处方模块对应系统第四工期的重点工作。其核心目标是把已经完成的挂号、接诊与聊天结果沉淀为真正可回看的诊疗结果。
+
+病历录入时，系统不信任前端直接提交的 doctorId，而是根据当前登录态的 userId 反查真实 doctorId，再写入 `medical_record`。病历主记录中的 `doctorDescription` 用于承载本期病历摘要、处理意见和结论性描述，`isPurchasable` 用于统一表示处方状态，其中 2 表示未开具处方，0 表示已开具未使用，1 表示已使用。这样设计虽然轻量，但能够在不引入复杂电子病历结构化模板的前提下完成诊疗结果闭环。
+
+处方被设计为附属于病历的数据，而不是独立游离于病历之外。医生创建处方时，系统按 `medicalRecordId` 批量保存 `prescription` 明细，并在成功后反向更新对应病历的 `isPurchasable` 字段。患者端查看病历时，再根据病历 ID 查询处方明细，并联表展示药品名称、数量、单位、价格和处方药属性。这样，患者看到的是“诊疗结果视图”而不是分散的两套数据。
+
+### 5.8 管理端基础主数据实现
+管理端在本文中主要承担科室、医生、患者与药品等基础主数据维护职责。虽然复杂统计报表不属于本文重点，但基础 CRUD 的存在是必要的，因为患者端挂号、医生端处方和病历展示都依赖这些主数据。以药品库为例，医生端开具处方时选择的药品，直接复用管理端维护的 `drug` 主数据，从而保证患者端回看的药品信息与医生端选择结果一致。
+
+## 第 6 章 系统测试与结果分析
 
 ### 6.1 测试环境
-系统测试环境采用本地开发模式，后端运行在 Spring Boot `local` 配置之上，MySQL 作为主数据库，Redis、RabbitMQ 与 MinIO 通过 Docker 容器启动，患者端与医生/管理端分别通过 Vite 开发服务器运行。测试方法以接口联调、页面联调和关键状态验证为主，重点检查业务闭环是否真实打通，而不是只检查页面是否可访问。
+测试环境采用本地真实数据环境，主要组件包括：JDK 17、Node.js 18+、MySQL 8、Redis 7、RabbitMQ 3、MinIO、本地 Spring Boot 后端服务、患者端 Vue 前端和医生/管理端 Vue 前端。AI 在线模型在测试环境中未强制依赖远程服务，因此主要验证本地回退与院内业务数据驱动的智能链路。
 
-### 6.2 功能测试
-本文围绕以下关键场景进行了真实测试：
+需要特别说明测试边界。本文所称“真实测试”是指测试过程中使用了真实后端服务、真实数据库、真实 Redis、真实 RabbitMQ、真实 MinIO、真实前端页面和真实浏览器交互，而不是通过 Mockito、MockBean 或外部桩对象替代关键依赖。当前项目中的支付子模块本身采用系统内置的模拟支付实现，即后端通过 `RegistrationPaymentService` 生成模拟支付跳转页面，并通过项目正式提供的支付确认接口推动业务状态流转。因此，本文在测试中并未接入第三方真实支付网关，但这属于当前系统设计边界，而非测试阶段临时打桩。除第三方支付清结算外，系统其他核心链路均已完成真实运行环境验证。
 
-| 测试编号 | 测试内容 | 预期结果 | 实测结果 |
-| --- | --- | --- | --- |
-| T1 | 患者端挂号创建 | 返回处理中 `token`，随后状态变为 `SUCCESS` | 已通过，`scheduleId=1868` 对应挂号成功生成 `registrationId=98` |
-| T2 | 医生发起问诊与患者接受 | 患者收到通知，接受后进入房间 | 已通过，历史联调中已完成医生发起、患者接受、房间创建 |
-| T3 | 医患双向聊天 | 双端消息均能持久化和广播 | 已通过，文本消息在医生端和患者端均可见 |
-| T4 | 病历与处方提交 | 医生提交成功，患者端可查看结果 | 已通过，病历 `medicalRecordId=52` 与处方明细已在患者端展示 |
-| T5 | 重新接诊通知 | 患者端弹窗展示真实医生信息 | 已通过，页面实测显示“韩雪梅 / 妇科 / 专家” |
-| T6 | 医生 CRUD | 创建、更新、禁用、删除可执行 | 已通过 |
-| T7 | 患者 CRUD | 创建、更新、禁用、删除可执行 | 已通过 |
-| T8 | 排班模板 CRUD 与补偿生成 | 新增、更新、删除、补偿生成可执行 | 已通过，`fill_missing` 模式返回生成统计结果 |
+### 6.2 后端单元测试
+为保证系统在真实依赖环境下可回归，本文首先对后端测试进行了修复与补充。早期测试中存在默认数据源配置错误、少量打印型测试缺乏断言、个别测试对真实数据有破坏性操作等问题。本文通过补齐测试环境配置、为关键逻辑新增断言型测试、对新增病历测试增加事务回滚等方式完成修复。
 
-### 6.3 问题发现与修复分析
-测试过程中暴露的问题主要集中在三个方面。
+从测试实现方式看，后端测试未使用 Mockito、MockBean 等模拟框架。`@SpringBootTest` 类测试直接加载 Spring 容器，并连接本地 MySQL、Redis 与 RabbitMQ；工具类与状态判断类测试则采用纯断言方式执行。当前测试文件包括：
 
-第一，数据口径问题。早期部分挂号展示仍然读取 `schedule` 快照中的医生与科室名称，导致聊天、病历和挂号列表中的医生名称不一致。后续通过将展示口径收敛为 `registration.doctor_id -> doctor_detail/sub_department` 联表主数据源，解决了这一问题。
+（1）`AiRateLimiterTest`、`AiRequestContextTest`、`AiRequestSanitizerTest`：验证 AI 请求限流、上下文和脱敏逻辑。  
+（2）`DrugTest`、`MedicalRecordImplTest`、`RedisTest`、`RegistrationTest`、`SystemUserTest`：验证药品、病历、Redis 访问、挂号与用户相关逻辑。  
+（3）`PatientIdentityUtilTest`、`ScheduleTimePolicyTest`、`AppointmentReservationKeysTest`、`AppointmentReservationStateTest`：验证身份、排班策略、预占 key 和预约状态判断等纯逻辑能力。  
+（4）`Log4j2Test`、`UploadTest`：分别覆盖日志输出与上传模块基础回归，其中上传测试当前为跳过状态。
 
-第二，前后端状态协同问题。问诊过程中，如果患者刷新页面，原有实时弹窗会丢失，导致用户看起来“有问诊请求但无法继续操作”。系统最终通过在“我的预约”页增加 `WAITING_CONFIRM` 状态操作入口解决这一问题。
+最终全量执行 `./mvnw test` 的结果如下：
 
-第三，消息通知质量问题。重新接诊通知虽然已经能到达患者端，但医生信息显示为占位文本，不利于真实使用体验。后续通过通知体补齐真实医生信息并做页面回归测试，完成了这一修复。
+- Tests run: 33  
+- Failures: 0  
+- Errors: 0  
+- Skipped: 1  
+- BUILD SUCCESS
 
-### 6.4 测试结果讨论
-从测试结果来看，系统已经完成了在线诊疗核心闭环和后台治理闭环。特别是在预约并发控制、状态一致性推进和问诊实时交互三个方面，系统不再停留于普通管理系统的展示逻辑，而是具备较强的业务可运行性。
+新增与修复后的测试覆盖了以下方面：  
+（1）患者身份工具类逻辑；  
+（2）排班时间策略；  
+（3）预约预占 key 生成规则；  
+（4）预约状态判断逻辑；  
+（5）药品、病历、Redis、挂号和 AI 辅助基础逻辑回归。  
 
-但同时也应看到，系统仍存在进一步完善空间。例如，支付链路在当前版本中被收敛为“直接创建挂号”而非真实支付回调闭环；测试主要集中在功能正确性和链路打通上，尚未形成系统化的压力测试报告；论文中的“国内外研究现状”与“相关工作对比”还可以在后续版本中继续补充文献支撑。
+单元测试阶段的价值不在于“覆盖所有业务流程”，而在于对关键规则、关键工具和关键服务入口形成稳定的断言保障，并确保后续真实环境集成测试能够建立在可回归的代码基础之上。
 
-## 第7章 总结与展望
+### 6.3 真实接口测试
+在真实数据库、Redis、RabbitMQ 和 MinIO 均启动的前提下，本文围绕完整业务链路进行了接口级验证，主要包括以下几类。这里的“接口级验证”并不依赖测试桩，而是直接对运行中的后端服务发起真实 HTTP 请求，并以真实测试账号、真实排班、真实挂号记录、真实病历和真实处方作为验证对象。
 
-本文围绕在线诊疗业务场景，设计并实现了一套基于 Spring Boot 与 Vue 的在线诊疗系统。相较于仅关注页面与表结构的传统课程设计，本文将研究重点放在排班治理、挂号并发控制和问诊状态一致性三个关键问题上，并通过 Redis、RabbitMQ 与 Netty 等技术手段完成了相应工程落地。系统已经实现患者端、医生端和管理端的主要功能，经过真实接口与页面联调，挂号、问诊、病历和处方等核心业务闭环可以正常运行。
+#### 6.3.1 登录、就诊人与排班查询
+系统分别使用真实患者账号和真实医生账号获取 dev token，并完成患者就诊人查询与未来排班查询验证。测试结果表明，基础角色识别、就诊人管理和排班展示均能正常工作。以患者 `userId=3` 为例，系统可稳定获取到主就诊人 `patientId=1`，同时能够读取未来排班数据并向前端暴露可挂号信息。
 
-本文的主要工作可以概括为以下三点：其一，构建了模板驱动的排班生成与补偿机制，解决了排班重复生成、模板变更后未来计划收敛等问题；其二，设计并实现了基于 Redis Lua 和 RabbitMQ 的挂号处理链路，增强了高并发挂号场景下的安全性与一致性；其三，统一了 Netty WebSocket 问诊实现，打通了医生发起、患者确认、房间聊天和结果留存的完整链路。
+#### 6.3.2 挂号、支付状态推进与异步落库
+本文验证了挂号成功、待支付后取消、重复请求幂等、非法参数拦截以及新增真实链路复核等多类场景。其中，一条真实挂号样例在创建后进入待支付状态，随后被取消，系统能够关闭支付单并恢复排班计数；另一条新增样例则完整经过挂号创建、支付表单生成、支付确认、问诊发起与问诊完成流程。
 
-后续工作可以从以下几个方向展开。第一，补充真实支付与回调机制，使挂号状态推进更加贴合实际业务。第二，引入更完善的监控和压测手段，对 Redis 预占与消息队列链路进行量化评估。第三，将医生智能辅助、病历结构化分析等能力纳入系统，在现有在线诊疗框架基础上扩展更高层次的智能服务功能。
+以 2026 年 3 月 31 日新增的真实复核样例为例，患者 `userId=3` 对 `scheduleId=2746` 发起挂号后，系统首先返回 `PROCESSING` 状态和请求 token，随后通过 `Redis + RabbitMQ` 链路将挂号推进到 `PAYING`，并生成真实 `registrationId=105` 和支付单 `outTradeNo=REG10584C6853B34DD4982`。支付表单接口 `/payment/form` 返回项目正式实现的模拟支付跳转页；随后通过系统内置支付确认接口，支付单状态成功变为 `PAID`，挂号状态进入已支付并继续向后推进。该过程验证了以下事实：  
+（1）挂号创建并非同步直接写库，而是先预占再异步持久化；  
+（2）支付单、挂号单和号源计数在状态推进过程中保持一致；  
+（3）支付模块虽然采用系统内置模拟支付实现，但它是业务模块的一部分，而不是测试临时桩。
 
-## 参考文献（初稿）
-[1] 南昌大学软件学院. 南昌大学2025届本科生毕业论文（设计）答辩信息公示表[EB/OL]. https://soft.ncu.edu.cn/info/1028/5291.htm.  
-[2] 南昌大学. 南昌大学本科生毕业论文（设计）工作条例[EB/OL]. https://spms.ncu.edu.cn/info/2031/29392.htm.  
-[3] Spring. Spring Boot Reference Documentation[EB/OL]. https://docs.spring.io/spring-boot/docs/current/reference/html/.  
-[4] Redis Labs. Redis Documentation[EB/OL]. https://redis.io/docs/.  
-[5] RabbitMQ Team. RabbitMQ Documentation[EB/OL]. https://www.rabbitmq.com/documentation.html.  
-[6] Netty Project. Netty User Guide[EB/OL]. https://netty.io/wiki/user-guide-for-4.x.html.  
-[7] Vue Team. Vue.js Guide[EB/OL]. https://vuejs.org/guide/.  
+#### 6.3.3 问诊、AI 协作、病历与处方
+本文进一步验证了医生发起问诊、患者接受问诊、聊天消息持久化、医生端 AI 协作接口、病历创建、处方创建、患者端病历回看等能力。以新增的真实样例为例，医生 `userId=4` 成功对 `registrationId=105` 发起问诊，创建 `roomId=189`；患者接受问诊后，房间状态进入问诊中，挂号状态同步更新为 `IN_PROGRESS`。随后患者与医生通过 `/chat/message` 写入真实聊天消息，系统将消息持久化到 `chat_message` 表中。
 
-## 后续补写建议
-1. 在绪论中补充更具体的“国内外研究现状”文献引用。
-2. 在系统测试章节增加接口响应耗时、并发挂号实验和异常恢复实验。
-3. 将章节中的表格和业务流程图迁移到正式论文模板中。
-4. 根据学校格式要求补充封面、诚信声明、致谢和附录。
+在此基础上，调用 `/ai/doctor/assist` 后，医生端协作 Agent 基于房间 `189` 的真实聊天上下文返回了结构化结果，内容包括风险提醒、缺失项、追问建议和病历草稿，`source` 字段标识为 `local-doctor-copilot`。随后医生端通过真实接口创建病历 `medicalRecordId=58`，并为其创建两条处方明细 `prescriptionId=37` 与 `38`。结束问诊后，`registration.id=105` 的状态被推进为已完成，患者端和医生端接口均能查询到新增病历与对应处方明细。
+
+这一轮验证说明：从挂号、支付确认、问诊、聊天、AI 协作、病历到处方的主链路已经在真实数据环境中被再次完整打通。
+
+### 6.4 前后端集成测试
+除接口测试外，本文还对双前端页面进行了集成验证。集成测试采用真实运行中的患者端与医生/管理端页面，不通过前端单元测试框架模拟组件，而是直接访问页面、触发实际交互并观察真实接口返回结果。
+
+患者端方面，重点验证了首页、AI 分诊页面、挂号列表页面和就诊记录页面。结果表明，AI 分诊页面能够基于真实症状输入返回科室推荐，并将推荐结果回填到挂号入口；就诊记录页面能够展示真实病历记录，并在详情中展示处方明细。由于病历列表当前默认按创建时间升序展示，最新新增病历可能出现在后续分页中，但数据本身已经能够被真实回看。
+
+医生端方面，重点验证了问诊列表、问诊聊天页、AI 协作弹窗、病历回填与病历列表页面。结果表明，医生能够从真实问诊列表进入聊天房间，触发 AI 协作弹窗，查看高风险提醒、缺失项和病历草稿，并可将 AI 草稿回填到就诊记录中。病历创建和处方创建后，医生端病历列表与患者端结果回看页面均能正确展示。
+
+### 6.5 测试结果分析
+从整体测试结果看，系统已经实现以下目标：
+
+（1）后端单元测试可稳定回归，核心逻辑已有基础断言覆盖。  
+（2）真实依赖环境下，挂号、问诊、病历和处方链路均已打通，且最近一次新增样例已完成从挂号到诊后结果回看的再次复核。  
+（3）患者端与医生端页面能够基于真实数据完成闭环展示。  
+（4）AI 能力已经真正嵌入业务流程，而不是停留在独立演示层。
+
+测试过程中也发现了两个具有代表性的观察点。第一，患者端病历列表按创建时间升序展示时，最新病历可能出现在后续分页中，这提示后续可考虑优化排序策略；第二，医生端“待处理问诊”页签不会展示已经进入问诊中的房间，因此在语义上更适合展示“待接诊”而非“全部正在处理的问诊”。这两项问题不影响核心链路正确性，但为后续迭代提供了明确方向。
+
+需要再次强调的是，本文测试中没有使用 Mockito、MockBean 等方式替代后端核心依赖。唯一需要单独说明的“模拟”部分，是当前项目正式实现中的支付子模块本身采用内置模拟支付方案。因此，从测试严谨性的角度，本文所完成的是“基于当前系统真实实现边界的全流程验证”，而不是“借助测试桩拼接出的伪闭环”。
+
+## 第 7 章 总结与展望
+
+### 7.1 全文总结
+本文围绕在线医疗场景，设计并实现了一套基于 Spring Boot 与 Vue 的智能在线诊疗系统。系统以“挂号—问诊—病历/处方”为核心主线，分别从高并发挂号的一致性控制、在线问诊状态同步、诊疗结果闭环落地以及 AI 业务化集成四个方面进行了实现和优化。
+
+在后端工程实现中，本文重点完成了基于 Redis、Lua 与 RabbitMQ 的两阶段挂号创建链路，使高并发预约场景下的库存校验、幂等控制与异步削峰具备较好的稳定性；在实时问诊能力方面，本文统一采用 Spring 原生 WebSocket 实现在线聊天，并通过后端集中推进挂号状态和房间状态，保障前后端状态一致；在病历与处方阶段，本文将问诊结果真实沉淀为病历主记录和处方明细，并让患者端能够完成诊后回看。
+
+在智能能力方面，本文没有把 AI 简单地作为聊天功能附加，而是根据患者端与医生端的业务差异，分别设计了两条不同的技术路线。患者端 Agent 强调以院内真实业务数据为基础的检索增强推荐，医生端 Agent 强调围绕问诊工作流的协作与质控。测试结果表明，这种“业务数据优先、规则底线兜底、人工确认收口”的设计思路更适合当前在线诊疗场景。
+
+### 7.2 不足之处
+尽管系统已经完成核心业务闭环，但仍存在若干不足。
+
+（1）患者端导诊 Agent 的检索增强目前仍以院内结构化数据拼装与规则过滤为主，尚未进一步扩展到独立向量数据库、重排序模型或更复杂的检索评估体系。  
+（2）医生端协作 Agent 已具备多角色协作与状态化工作流思路，但当前实现仍主要在 Java 主服务中完成，尚未进一步抽象为显式共享状态对象与独立图工作流运行时。  
+（3）长期记忆能力目前主要依赖历史病历和历史处方的业务检索，尚未沉淀成独立的患者画像摘要表。  
+（4）支付、购药和配送链路并非本文重点，因此当前系统仅保留必要的状态字段与联调能力，没有将其扩展为完整药房电商流程。
+
+### 7.3 后续展望
+后续可以从以下几个方向继续深化。
+
+（1）在患者端 Agent 中引入更完整的业务型 RAG 体系，例如分层知识切分、元数据增强、混合检索与重排序，以进一步提高导诊推荐的稳定性与解释性。  
+（2）在医生端 Agent 中显式抽象共享状态对象与节点路由逻辑，完善问诊协作链路的可观测性和可扩展性，并进一步沉淀长期记忆画像。  
+（3）在系统层面增强前端排序、权限提示、统计分析和日志审计能力，提升系统运维与复盘能力。  
+（4）在诊疗结果层面继续扩展结构化病历字段、诊断编码与药品规则校验，为更贴近真实医疗业务的应用奠定基础。
+
+## 参考文献
+
+[1] Spring Team. Spring Boot Reference Documentation[EB/OL]. https://docs.spring.io/spring-boot/docs/current/reference/html/, 2026-03-31.  
+[2] Spring Team. Spring Framework WebSocket Documentation[EB/OL]. https://docs.spring.io/spring-framework/reference/web/websocket.html, 2026-03-31.  
+[3] Baomidou. MyBatis-Plus 官方文档[EB/OL]. https://baomidou.com/, 2026-03-31.  
+[4] Redis Ltd. Redis Documentation[EB/OL]. https://redis.io/docs/, 2026-03-31.  
+[5] RabbitMQ Team. RabbitMQ Documentation[EB/OL]. https://www.rabbitmq.com/documentation.html, 2026-03-31.  
+[6] Vue Team. Vue.js Documentation[EB/OL]. https://vuejs.org/, 2026-03-31.  
+[7] Element Plus Team. Element Plus Documentation[EB/OL]. https://element-plus.org/, 2026-03-31.  
+[8] MinIO, Inc. MinIO Documentation[EB/OL]. https://min.io/docs/minio/linux/index.html, 2026-03-31.  
+[9] LangChain4j Team. LangChain4j Documentation[EB/OL]. https://docs.langchain4j.dev/, 2026-03-31.  

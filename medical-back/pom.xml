@@ -16,6 +16,7 @@
     <description>Online-Treatment-System</description>
     <properties>
         <java.version>17</java.version>
+        <langchain4j.version>1.12.1</langchain4j.version>
     </properties>
 
 
@@ -186,11 +187,21 @@
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
-        <!-- Netty WebSocket (用于后续替换 Spring WebSocket) -->
+        <!-- Spring 基础 WebSocket -->
         <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-all</artifactId>
-            <version>4.1.111.Final</version>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+        <!-- LangChain4j（Java 侧 AI agent） -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-open-ai</artifactId>
+            <version>${langchain4j.version}</version>
         </dependency>
     </dependencies>
 

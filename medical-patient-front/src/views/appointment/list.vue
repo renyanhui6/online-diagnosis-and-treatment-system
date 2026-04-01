@@ -79,6 +79,14 @@
           <template #default="{ row }">
             <div class="action-buttons">
               <el-button 
+                v-if="row.registrationStatus === APPOINTMENT_STATUS.PENDING_PAYMENT"
+                type="warning"
+                size="small"
+                @click="handlePayAppointment(row)"
+              >
+                去支付
+              </el-button>
+              <el-button 
                 v-if="row.registrationStatus === APPOINTMENT_STATUS.CONSULTING"
                 type="primary" 
                 size="small" 
@@ -146,7 +154,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getUserAppointmentOrders, changeStatusToResumed } from '../../api/appointment'
+import { getUserAppointmentOrders, changeStatusToResumed, getAppointmentPaymentForm } from '../../api/appointment'
 import { getAppointmentStatusText, getAppointmentStatusType, APPOINTMENT_STATUS, canResumeAppointment } from '../../utils'
 import { getRoomStatus, respondToConsultation } from '../../api/chat'
 import UserStorage from '../../utils/userStorage'
@@ -186,6 +194,22 @@ const getStatusType = (status) => {
 // 跳转到预约挂号页面
 const goToAppointment = () => {
   router.push('/appointment')
+}
+
+const handlePayAppointment = async (row) => {
+  try {
+    const res = await getAppointmentPaymentForm(row.id)
+    if (res.code !== 200 || !res.data?.formHtml) {
+      ElMessage.error(res.message || '拉起支付失败')
+      return
+    }
+    document.open()
+    document.write(res.data.formHtml)
+    document.close()
+  } catch (error) {
+    console.error('拉起支付失败:', error)
+    ElMessage.error(error.message || '拉起支付失败，请稍后重试')
+  }
 }
 
 // 处理筛选

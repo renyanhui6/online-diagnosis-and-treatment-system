@@ -9,8 +9,6 @@ import cn.edu.ncu.medical.entity.Registration;
 import cn.edu.ncu.medical.entity.Room;
 import cn.edu.ncu.medical.entity.SubDepartment;
 import cn.edu.ncu.medical.inteceptor.login.LoginUserHolder;
-import cn.edu.ncu.medical.netty.NettyConsultationTimeoutScheduler;
-import cn.edu.ncu.medical.netty.NettySessionRegistry;
 import cn.edu.ncu.medical.result.Result;
 import cn.edu.ncu.medical.service.ChatMessageService;
 import cn.edu.ncu.medical.service.DoctorDetailService;
@@ -41,18 +39,18 @@ public class ChatController {
     private static UploadConfig uploadConfig;
     private static RoomService roomService;
     private static PatientAttendantService patientAttendantService;
-    private static NettySessionRegistry nettySessionRegistry;
-    private static NettyConsultationTimeoutScheduler consultationTimeoutScheduler;
+    private static SimpleWebSocketSessionRegistry webSocketSessionRegistry;
+    private static ConsultationTimeoutScheduler consultationTimeoutScheduler;
     private static RegistrationService registrationService;
     private static DoctorDetailService doctorDetailService;
     private static SubDepartmentService subDepartmentService;
     @Autowired
-    public ChatController(ChatMessageService chatMessageService, UploadConfig uploadConfig, RoomService roomService, PatientAttendantService patientAttendantService, NettySessionRegistry nettySessionRegistry, NettyConsultationTimeoutScheduler consultationTimeoutScheduler, RegistrationService registrationService, DoctorDetailService doctorDetailService, SubDepartmentService subDepartmentService) {
+    public ChatController(ChatMessageService chatMessageService, UploadConfig uploadConfig, RoomService roomService, PatientAttendantService patientAttendantService, SimpleWebSocketSessionRegistry webSocketSessionRegistry, ConsultationTimeoutScheduler consultationTimeoutScheduler, RegistrationService registrationService, DoctorDetailService doctorDetailService, SubDepartmentService subDepartmentService) {
         ChatController.chatMessageService = chatMessageService;
         ChatController.uploadConfig = uploadConfig;
         ChatController.roomService = roomService;
         ChatController.patientAttendantService = patientAttendantService;
-        ChatController.nettySessionRegistry = nettySessionRegistry;
+        ChatController.webSocketSessionRegistry = webSocketSessionRegistry;
         ChatController.consultationTimeoutScheduler = consultationTimeoutScheduler;
         ChatController.registrationService = registrationService;
         ChatController.doctorDetailService = doctorDetailService;
@@ -272,8 +270,8 @@ public class ChatController {
             wsMessage.put("content", message.getContent());
             wsMessage.put("createTime", message.getCreateTime());
 
-            if (nettySessionRegistry != null) {
-                nettySessionRegistry.broadcast(message.getRoomId().toString(), JSON.toJSONString(wsMessage));
+            if (webSocketSessionRegistry != null) {
+                webSocketSessionRegistry.broadcast(message.getRoomId().toString(), JSON.toJSONString(wsMessage));
             }
 
             return Result.ok("消息发送成功");
@@ -336,7 +334,7 @@ public class ChatController {
             roomStatusMessage.put("room_status", status);
             roomStatusMessage.put("roomId", roomId);
             roomStatusMessage.put("timestamp", new Date());
-            broadcastToNettyRoom(roomId, roomStatusMessage);
+            broadcastToWebSocketRoom(roomId, roomStatusMessage);
 
             return Result.ok("状态更新成功");
         } catch (Exception e) {
@@ -472,7 +470,7 @@ public class ChatController {
             endMessage.put("message", "问诊已结束，感谢您的配合");
             
             // 广播给聊天房间的所有用户
-            broadcastToNettyRoom(roomId, endMessage);
+            broadcastToWebSocketRoom(roomId, endMessage);
             
             // 发送状态更新消息
             Map<String, Object> statusMessage = new HashMap<>();
@@ -481,7 +479,7 @@ public class ChatController {
             statusMessage.put("message", "问诊已结束");
             statusMessage.put("timestamp", new Date());
             
-            broadcastToNettyRoom(roomId, statusMessage);
+            broadcastToWebSocketRoom(roomId, statusMessage);
             
             // 发送房间状态更新消息
             Map<String, Object> roomStatusMessage = new HashMap<>();
@@ -490,7 +488,7 @@ public class ChatController {
             roomStatusMessage.put("roomId", roomId);
             roomStatusMessage.put("timestamp", new Date());
             
-            broadcastToNettyRoom(roomId, roomStatusMessage);
+            broadcastToWebSocketRoom(roomId, roomStatusMessage);
             
             // 通知患者端断开连接
             if (room.getPatientId() != null) {
@@ -571,7 +569,7 @@ public class ChatController {
             wsMessage.put("content", imageUrl);
             wsMessage.put("createTime", chatMessage.getCreateTime());
 
-            broadcastToNettyRoom(roomId, wsMessage);
+            broadcastToWebSocketRoom(roomId, wsMessage);
 
             // 返回图片URL
             Map<String, Object> result = new HashMap<>();
@@ -587,25 +585,25 @@ public class ChatController {
         }
     }
 
-    private static void broadcastToNettyRoom(Long roomId, Map<String, Object> message) {
-        if (nettySessionRegistry == null || roomId == null || message == null) {
+    private static void broadcastToWebSocketRoom(Long roomId, Map<String, Object> message) {
+        if (webSocketSessionRegistry == null || roomId == null || message == null) {
             return;
         }
-        nettySessionRegistry.broadcast(roomId.toString(), JSON.toJSONString(message));
+        webSocketSessionRegistry.broadcast(roomId.toString(), JSON.toJSONString(message));
     }
 
     private static void sendToPatientLongConnection(Long patientId, Map<String, Object> notification) {
-        if (nettySessionRegistry == null || patientId == null || notification == null) {
+        if (webSocketSessionRegistry == null || patientId == null || notification == null) {
             return;
         }
-        nettySessionRegistry.sendToPatient(patientId, JSON.toJSONString(notification));
+        webSocketSessionRegistry.sendToPatient(patientId, JSON.toJSONString(notification));
     }
 
     private static void sendToDoctorLongConnection(Long doctorId, Map<String, Object> notification) {
-        if (nettySessionRegistry == null || doctorId == null || notification == null) {
+        if (webSocketSessionRegistry == null || doctorId == null || notification == null) {
             return;
         }
-        nettySessionRegistry.sendToDoctor(doctorId, JSON.toJSONString(notification));
+        webSocketSessionRegistry.sendToDoctor(doctorId, JSON.toJSONString(notification));
     }
 
     private Map<String, Object> buildConsultationRequestNotification(Long registrationId,

@@ -15,7 +15,7 @@
       <div class="chat-actions">
         <el-button type="primary" @click="showRecordDialog">填写就诊记录</el-button>
         <el-button type="warning" @click="showPrescriptionDialog">开处方</el-button>
-        <el-button type="info" plain :loading="aiLoading" @click="fetchAiAssist">AI 辅助</el-button>
+        <el-button type="info" plain :loading="aiLoading" @click="fetchAiAssist">AI 协作</el-button>
         <el-button type="success" @click="finishConsultation">结束问诊</el-button>
         <el-button type="info" @click="goBack" v-if="roomStatus === 3 || roomStatus === 4 || roomStatus === 5">返回</el-button>
         <el-button type="warning" @click="handleTimeoutRoom" v-if="roomStatus === 4">处理超时房间</el-button>
@@ -166,26 +166,111 @@
     <!-- AI 辅助结果 -->
     <el-dialog
       v-model="aiDialogVisible"
-      title="AI 辅助建议（仅供参考）"
-      width="40%"
+      title="AI 问诊协作（仅供医生参考）"
+      width="58%"
     >
       <el-skeleton :loading="aiLoading" animated>
         <template #template>
-          <el-skeleton-item variant="text" style="width: 90%;"></el-skeleton-item>
-          <el-skeleton-item variant="text" style="width: 85%;"></el-skeleton-item>
-          <el-skeleton-item variant="text" style="width: 80%;"></el-skeleton-item>
+          <el-skeleton-item variant="text" style="width: 92%;"></el-skeleton-item>
+          <el-skeleton-item variant="text" style="width: 86%;"></el-skeleton-item>
+          <el-skeleton-item variant="rect" style="height: 120px; margin-top: 16px;"></el-skeleton-item>
         </template>
         <template #default>
           <div class="ai-content">
-            <p class="ai-suggestion">{{ aiSuggestion }}</p>
-            <div v-if="aiFollowUp.length" class="ai-followup">
-              <h4>追问建议</h4>
+            <div class="ai-header-summary">
+              <div>
+                <p class="ai-suggestion">{{ aiSuggestion }}</p>
+                <div class="ai-meta">
+                  <el-tag size="small" effect="plain">来源：{{ aiSource }}</el-tag>
+                  <el-tag size="small" effect="plain">置信度：{{ aiConfidence ?? '未知' }}</el-tag>
+                  <el-tag v-if="aiNeedMoreInfo" type="warning" size="small">需继续追问</el-tag>
+                  <el-tag v-if="aiHighRisk" type="danger" size="small">高风险提醒</el-tag>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="aiRiskAlerts.length" class="ai-section ai-danger">
+              <h4>风险提醒</h4>
               <ul>
-                <li v-for="q in aiFollowUp" :key="q">{{ q }}</li>
+                <li v-for="item in aiRiskAlerts" :key="item">{{ item }}</li>
               </ul>
             </div>
+
+            <div class="ai-section-grid">
+              <div v-if="aiMissingInfoItems.length" class="ai-section">
+                <h4>缺失项检查</h4>
+                <ul>
+                  <li v-for="item in aiMissingInfoItems" :key="item">{{ item }}</li>
+                </ul>
+              </div>
+
+              <div v-if="aiAssessmentFocuses.length" class="ai-section">
+                <h4>重点排查方向</h4>
+                <ul>
+                  <li v-for="item in aiAssessmentFocuses" :key="item">{{ item }}</li>
+                </ul>
+              </div>
+            </div>
+
+            <div v-if="aiFollowUp.length" class="ai-section">
+              <h4>建议继续追问</h4>
+              <div class="ai-followup-list">
+                <div v-for="q in aiFollowUp" :key="q" class="ai-followup-item">
+                  <span>{{ q }}</span>
+                  <el-button link type="primary" @click="appendFollowUpQuestion(q)">加入输入框</el-button>
+                </div>
+              </div>
+            </div>
+
+            <div class="ai-section-grid">
+              <div v-if="aiHistoricalRecordHighlights.length" class="ai-section">
+                <h4>历史病历线索</h4>
+                <ul>
+                  <li v-for="item in aiHistoricalRecordHighlights" :key="item">{{ item }}</li>
+                </ul>
+              </div>
+
+              <div v-if="aiPrescriptionSafetyHints.length" class="ai-section">
+                <h4>处方前注意</h4>
+                <ul>
+                  <li v-for="item in aiPrescriptionSafetyHints" :key="item">{{ item }}</li>
+                </ul>
+              </div>
+            </div>
+
+            <div v-if="aiRecommendedActions.length" class="ai-section">
+              <h4>下一步动作建议</h4>
+              <ul>
+                <li v-for="item in aiRecommendedActions" :key="item">{{ item }}</li>
+              </ul>
+            </div>
+
+            <div class="ai-section-grid">
+              <div v-if="aiChiefComplaintDraft" class="ai-section">
+                <h4>主诉草稿</h4>
+                <div class="ai-block">{{ aiChiefComplaintDraft }}</div>
+              </div>
+
+              <div v-if="aiPresentIllnessDraft" class="ai-section">
+                <h4>现病史草稿</h4>
+                <div class="ai-block">{{ aiPresentIllnessDraft }}</div>
+              </div>
+            </div>
+
+            <div v-if="aiStructuredRecordDraft" class="ai-section">
+              <h4>结构化病历草稿</h4>
+              <pre class="ai-structured-record">{{ aiStructuredRecordDraft }}</pre>
+            </div>
+
+            <div v-if="aiUsedDataSources.length" class="ai-section">
+              <h4>已使用数据源</h4>
+              <div class="ai-tag-list">
+                <el-tag v-for="item in aiUsedDataSources" :key="item" size="small" effect="plain">{{ item }}</el-tag>
+              </div>
+            </div>
+
             <el-alert
-              title="AI 生成内容仅供参考，请结合临床判断。"
+              title="AI 只做协作和质控提示，最终病历、诊断和处方必须由医生确认。"
               type="warning"
               :closable="false"
               show-icon
@@ -193,6 +278,12 @@
           </div>
         </template>
       </el-skeleton>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="aiDialogVisible = false">关闭</el-button>
+          <el-button type="primary" @click="applyAiDraftToMedicalRecord" :disabled="!aiStructuredRecordDraft">回填到就诊记录</el-button>
+        </span>
+      </template>
     </el-dialog>
 
     <!-- AI 服务不可用 -->
@@ -328,6 +419,20 @@ const roomId = ref('');
 const aiDialogVisible = ref(false);
 const aiSuggestion = ref('');
 const aiFollowUp = ref([]);
+const aiMissingInfoItems = ref([]);
+const aiRiskAlerts = ref([]);
+const aiRecommendedActions = ref([]);
+const aiAssessmentFocuses = ref([]);
+const aiPrescriptionSafetyHints = ref([]);
+const aiHistoricalRecordHighlights = ref([]);
+const aiUsedDataSources = ref([]);
+const aiChiefComplaintDraft = ref('');
+const aiPresentIllnessDraft = ref('');
+const aiStructuredRecordDraft = ref('');
+const aiConfidence = ref(null);
+const aiNeedMoreInfo = ref(false);
+const aiHighRisk = ref(false);
+const aiSource = ref('');
 const aiLoading = ref(false);
 const aiUnavailableDialogVisible = ref(false);
 const aiUnavailableText = ref('');
@@ -429,6 +534,7 @@ async function fetchAiAssist() {
   try {
     const payload = {
       roomId: roomId.value,
+      registrationId: consultation.value.id,
       summary: buildConversationSnippet(),
       conversationSnippet: buildConversationSnippet()
     };
@@ -436,6 +542,20 @@ async function fetchAiAssist() {
     if (resp.code === 200 && resp.data) {
       aiSuggestion.value = resp.data.suggestion || '暂无建议';
       aiFollowUp.value = resp.data.followUpQuestions || [];
+      aiMissingInfoItems.value = resp.data.missingInfoItems || [];
+      aiRiskAlerts.value = resp.data.riskAlerts || [];
+      aiRecommendedActions.value = resp.data.recommendedActions || [];
+      aiAssessmentFocuses.value = resp.data.assessmentFocuses || [];
+      aiPrescriptionSafetyHints.value = resp.data.prescriptionSafetyHints || [];
+      aiHistoricalRecordHighlights.value = resp.data.historicalRecordHighlights || [];
+      aiUsedDataSources.value = resp.data.usedDataSources || [];
+      aiChiefComplaintDraft.value = resp.data.chiefComplaintDraft || '';
+      aiPresentIllnessDraft.value = resp.data.presentIllnessDraft || '';
+      aiStructuredRecordDraft.value = resp.data.structuredRecordDraft || '';
+      aiConfidence.value = resp.data.confidence ?? null;
+      aiNeedMoreInfo.value = !!resp.data.needMoreInfo;
+      aiHighRisk.value = !!resp.data.highRisk;
+      aiSource.value = resp.data.source || 'unknown';
       aiDialogVisible.value = true;
     } else if (resp.code === 9001) {
       aiUnavailableText.value = resp.message || AI_UNAVAILABLE_FALLBACK;
@@ -450,6 +570,25 @@ async function fetchAiAssist() {
   } finally {
     aiLoading.value = false;
   }
+}
+
+function appendFollowUpQuestion(question) {
+  inputMessage.value = inputMessage.value
+    ? `${inputMessage.value.trim()}\n${question}`
+    : question;
+  aiDialogVisible.value = false;
+  ElMessage.success('追问建议已加入输入框');
+}
+
+function applyAiDraftToMedicalRecord() {
+  if (!aiStructuredRecordDraft.value) {
+    ElMessage.warning('当前没有可回填的病历草稿');
+    return;
+  }
+  recordForm.value.description = aiStructuredRecordDraft.value;
+  aiDialogVisible.value = false;
+  showRecordDialog();
+  ElMessage.success('AI 草稿已回填到就诊记录');
 }
 
 // 快捷回复
@@ -2011,6 +2150,119 @@ watch(() => messages.value.length, () => {
   background: var(--app-surface);
   border: 1px solid var(--app-border);
   color: var(--app-text);
+}
+
+.ai-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ai-header-summary {
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0.08));
+  border: 1px solid rgba(37, 99, 235, 0.12);
+}
+
+.ai-suggestion {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--app-text);
+  font-weight: 600;
+}
+
+.ai-meta {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ai-section-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.ai-section {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--app-border);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.ai-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: var(--app-text);
+}
+
+.ai-section ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--app-text-muted);
+  line-height: 1.7;
+}
+
+.ai-danger {
+  border-color: rgba(220, 38, 38, 0.18);
+  background: rgba(254, 242, 242, 0.9);
+}
+
+.ai-followup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-followup-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.95);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.ai-block {
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--app-text-muted);
+  line-height: 1.7;
+}
+
+.ai-structured-record {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.95);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  color: var(--app-text);
+  font-family: inherit;
+  line-height: 1.8;
+}
+
+.ai-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 960px) {
+  .ai-section-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-followup-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 /* 添加动画效果 */
 @keyframes fadeIn {

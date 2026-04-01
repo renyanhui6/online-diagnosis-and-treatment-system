@@ -1,12 +1,73 @@
 <template>
   <div class="medical-records-container">
-    <div class="page-header">
-      <h2>就诊记录管理</h2>
-      <div class="header-actions">
+    <section class="records-hero">
+      <div class="hero-copy">
+        <span class="hero-badge">病历工作台</span>
+        <h2>就诊记录管理</h2>
+        <p>
+          集中查看当前医生名下的病历记录、处方状态与患者信息，支持多维筛选和详情追溯。
+        </p>
+      </div>
+
+      <div class="hero-side">
+        <div class="hero-kpi">
+          <span>当前记录总数</span>
+          <strong>{{ medicalRecords.length }}</strong>
+          <small>已同步到当前页面的数据量</small>
+        </div>
+        <div class="hero-kpi muted">
+          <span>筛选结果</span>
+          <strong>{{ filteredMedicalRecords.length }}</strong>
+          <small>当前条件下可查看的病历数量</small>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats-grid">
+      <article class="stat-card">
+        <span class="stat-label">全部记录</span>
+        <strong>{{ recordStats.total }}</strong>
+        <small>当前医生的全部病历数量</small>
+      </article>
+      <article class="stat-card accent-blue">
+        <span class="stat-label">处方未使用</span>
+        <strong>{{ recordStats.unused }}</strong>
+        <small>已开处方但尚未使用的记录</small>
+      </article>
+      <article class="stat-card accent-green">
+        <span class="stat-label">处方已使用</span>
+        <strong>{{ recordStats.used }}</strong>
+        <small>已完成用药流转的病历记录</small>
+      </article>
+      <article class="stat-card accent-amber">
+        <span class="stat-label">尚未开方</span>
+        <strong>{{ recordStats.notIssued }}</strong>
+        <small>仅有病历记录，尚未开具处方</small>
+      </article>
+    </section>
+
+    <el-card shadow="hover" class="filter-card">
+      <div class="filter-header">
+        <div>
+          <h3>筛选条件</h3>
+          <p>按处方状态、就诊日期和患者关键字快速定位目标病历。</p>
+        </div>
+        <el-button type="primary" @click="refreshMedicalRecords">
+          <el-icon><Refresh /></el-icon>
+          刷新数据
+        </el-button>
+      </div>
+
+      <div class="filter-grid">
         <el-select v-model="filterStatus" placeholder="就诊状态" clearable @change="handleFilterChange">
-          <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
+          <el-option
+            v-for="item in statusOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
         </el-select>
-        
+
         <el-date-picker
           v-model="selectedDate"
           type="date"
@@ -14,9 +75,8 @@
           format="YYYY-MM-DD"
           value-format="YYYY-MM-DD"
           @change="handleDateChange"
-          style="width: 300px"
         />
-        
+
         <el-input
           v-model="searchQuery"
           placeholder="搜索患者姓名/就诊记录ID"
@@ -27,53 +87,59 @@
             <el-icon><Search /></el-icon>
           </template>
         </el-input>
-        
-        <el-button type="primary" @click="refreshMedicalRecords">
-          <el-icon><Refresh /></el-icon>
-          刷新
-        </el-button>
       </div>
-    </div>
-    
+    </el-card>
+
     <el-card shadow="hover" class="medical-record-card">
+      <template #header>
+        <div class="table-header">
+          <div>
+            <h3>病历列表</h3>
+            <p>当前展示 {{ filteredMedicalRecords.length }} 条记录，支持点击整行查看详情。</p>
+          </div>
+        </div>
+      </template>
+
       <el-table
         v-loading="loading"
         :data="paginatedMedicalRecords"
         style="width: 100%"
         @row-click="handleRowClick"
       >
-        <el-table-column prop="medicalRecordId" label="就诊记录ID" width="265" />
-        <el-table-column prop="patientName" label="患者姓名" width="265">
+        <el-table-column prop="medicalRecordId" label="就诊记录ID" width="220" />
+        <el-table-column prop="patientName" label="患者姓名" min-width="220">
           <template #default="{ row }">
             <div class="patient-info">
-              <el-avatar :size="24" :src="row.patientAvatar" />
-              <span>{{ row.patientName }}</span>
+              <el-avatar :size="28" :src="row.patientAvatar" />
+              <div class="patient-copy">
+                <span>{{ row.patientName }}</span>
+                <small>{{ row.patientPhone || '未留电话' }}</small>
+              </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="isPurchasable" label="处方状态" width="295">
+        <el-table-column prop="doctorDescription" label="医生描述" min-width="260" show-overflow-tooltip />
+        <el-table-column prop="isPurchasable" label="处方状态" width="140">
           <template #default="{ row }">
             <el-tag :type="getPrescriptionStatusType(row.isPurchasable)">
               {{ getPrescriptionStatusText(row.isPurchasable) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="就诊时间" width="315" sortable />
-        <el-table-column label="操作" width="215" fixed="right">
+        <el-table-column prop="createTime" label="就诊时间" min-width="180" sortable />
+        <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
-            <div class="table-actions">
-              <el-button 
-                type="primary" 
-                size="small"
-                @click.stop="viewMedicalRecordDetail(row)"
-              >
-                查看详情
-              </el-button>
-            </div>
+            <el-button
+              type="primary"
+              size="small"
+              @click.stop="viewMedicalRecordDetail(row)"
+            >
+              查看详情
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
-      
+
       <div class="pagination-container">
         <el-pagination
           v-model:current-page="currentPage"
@@ -86,8 +152,7 @@
         />
       </div>
     </el-card>
-    
-    <!-- 就诊记录详情抽屉 -->
+
     <el-drawer
       v-model="medicalRecordDrawerVisible"
       title="就诊记录详情"
@@ -101,9 +166,9 @@
             {{ getPrescriptionStatusText(selectedMedicalRecord.isPurchasable) }}
           </el-tag>
         </div>
-        
+
         <el-divider content-position="left">患者信息</el-divider>
-        
+
         <div class="patient-section">
           <el-avatar :size="64" :src="selectedMedicalRecord.patientAvatar" />
           <div class="patient-info-detail">
@@ -112,7 +177,7 @@
             <p>{{ selectedMedicalRecord.patientPhone }}</p>
           </div>
         </div>
-        
+
         <div class="detail-content">
           <div class="detail-item">
             <span class="item-label">医生描述：</span>
@@ -127,26 +192,20 @@
             <span class="item-value">{{ selectedMedicalRecord.updateTime }}</span>
           </div>
         </div>
-        
+
         <div class="detail-actions">
-          <el-button 
+          <el-button
             v-if="selectedMedicalRecord.isPurchasable !== 2"
-            type="primary" 
+            type="primary"
             @click="viewPrescriptionFromRecord"
           >
             查看处方
           </el-button>
-          <el-button 
-            type="info" 
-            @click="medicalRecordDrawerVisible = false"
-          >
-            关闭
-          </el-button>
+          <el-button type="info" @click="medicalRecordDrawerVisible = false">关闭</el-button>
         </div>
       </div>
     </el-drawer>
 
-    <!-- 处方详情抽屉 -->
     <el-drawer
       v-model="prescriptionDrawerVisible"
       title="处方详情"
@@ -157,9 +216,9 @@
         <div class="detail-header">
           <div class="prescription-id">处方编号：{{ selectedPrescription.id || '暂无' }}</div>
         </div>
-        
+
         <el-divider content-position="left">基本信息</el-divider>
-        
+
         <div class="patient-section">
           <el-avatar :size="64" :src="selectedPrescription.patientAvatar" />
           <div class="patient-info-detail">
@@ -168,7 +227,7 @@
             <p>{{ selectedPrescription.patientPhone }}</p>
           </div>
         </div>
-        
+
         <div class="detail-content">
           <div class="detail-item">
             <span class="item-label">患者姓名：</span>
@@ -179,9 +238,9 @@
             <span class="item-value">{{ selectedPrescription.doctorDescription || selectedMedicalRecord?.doctorDescription || '无' }}</span>
           </div>
         </div>
-        
+
         <el-divider content-position="left">药品信息</el-divider>
-        
+
         <el-table :data="selectedPrescription.drugs" border style="width: 100%">
           <el-table-column prop="drugName" label="药品名称" min-width="150" />
           <el-table-column prop="drugQuantity" label="药品数量" width="100" />
@@ -199,7 +258,7 @@
             </template>
           </el-table-column>
         </el-table>
-        
+
         <div class="price-summary">
           <div class="price-item">
             <span>药品总数：</span>
@@ -210,14 +269,9 @@
             <span class="total-price">¥{{ (selectedPrescription.total_amount || 0).toFixed(2) }}</span>
           </div>
         </div>
-        
+
         <div class="detail-actions">
-          <el-button 
-            type="info" 
-            @click="prescriptionDrawerVisible = false"
-          >
-            关闭
-          </el-button>
+          <el-button type="info" @click="prescriptionDrawerVisible = false">关闭</el-button>
         </div>
       </div>
     </el-drawer>
@@ -225,15 +279,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, onMounted, ref } from 'vue';
 import { Search, Refresh } from '@element-plus/icons-vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import { getMedicalRecordList, getPrescriptionInfoByMedicalRecordId } from '@/api/doctor';
 
-const router = useRouter();
-
-// 状态和数据
 const loading = ref(false);
 const medicalRecords = ref([]);
 const currentPage = ref(1);
@@ -241,165 +291,135 @@ const pageSize = ref(10);
 const filterStatus = ref('');
 const selectedDate = ref('');
 const searchQuery = ref('');
-const total = ref(0); // 添加总数
+const total = ref(0);
 
-// 抽屉
 const medicalRecordDrawerVisible = ref(false);
 const prescriptionDrawerVisible = ref(false);
 const selectedMedicalRecord = ref(null);
 const selectedPrescription = ref(null);
 
-// 处方状态选项 - 根据isPurchasable字段
 const statusOptions = [
   { value: 0, label: '未使用' },
   { value: 1, label: '已使用' },
   { value: 2, label: '未开具' }
 ];
 
-// 计算属性
 const filteredMedicalRecords = computed(() => {
-  // 确保medicalRecords.value是数组
   const records = Array.isArray(medicalRecords.value) ? medicalRecords.value : [];
   let result = [...records];
-  
-  console.log('filteredMedicalRecords计算，原始数据长度:', records.length);
-  console.log('当前筛选条件 - 状态:', filterStatus.value, '日期:', selectedDate.value, '搜索:', searchQuery.value);
-  
-  // 状态筛选
+
   if (filterStatus.value !== '' && filterStatus.value !== null && filterStatus.value !== undefined) {
     result = result.filter(item => item.isPurchasable === filterStatus.value);
-    console.log('状态筛选后长度:', result.length);
   }
-  
-  // 日期筛选 - 根据就诊时间的年月日查询
+
   if (selectedDate.value) {
-    console.log('开始日期筛选，选择的日期:', selectedDate.value);
     const targetDate = new Date(selectedDate.value);
     const targetYear = targetDate.getFullYear();
     const targetMonth = targetDate.getMonth();
     const targetDay = targetDate.getDate();
-    
-    console.log('目标日期:', targetYear, targetMonth, targetDay);
-    
+
     result = result.filter(item => {
-      if (!item.createTime) {
-        console.log('记录没有createTime:', item);
-        return false;
-      }
-      
-      console.log('检查记录:', item.createTime);
-      
-      // 处理日期格式问题：将 02-35 转换为 02:35
+      if (!item.createTime) return false;
+
       let processedTime = item.createTime;
-      if (processedTime && processedTime.includes('-')) {
-        // 将时间部分的 - 替换为 :
+      if (processedTime.includes('-')) {
         const parts = processedTime.split(' ');
         if (parts.length === 2) {
-          const datePart = parts[0];
-          const timePart = parts[1].replace(/-/g, ':');
-          processedTime = datePart + ' ' + timePart;
-          console.log('处理后的时间格式:', processedTime);
+          processedTime = `${parts[0]} ${parts[1].replace(/-/g, ':')}`;
         }
       }
-      
+
       const itemDate = new Date(processedTime);
-      const itemYear = itemDate.getFullYear();
-      const itemMonth = itemDate.getMonth();
-      const itemDay = itemDate.getDate();
-      
-      console.log('记录日期:', itemYear, itemMonth, itemDay);
-      const isMatch = itemYear === targetYear && itemMonth === targetMonth && itemDay === targetDay;
-      console.log('日期匹配:', isMatch);
-      
-      return isMatch;
+      return (
+        itemDate.getFullYear() === targetYear &&
+        itemDate.getMonth() === targetMonth &&
+        itemDate.getDate() === targetDay
+      );
     });
-    console.log('日期筛选后长度:', result.length);
   }
-  
-  // 搜索筛选
+
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase();
-    result = result.filter(item => 
-      item.patientName && item.patientName.toLowerCase().includes(query) || 
-      item.medicalRecordId && item.medicalRecordId.toString().includes(query) ||
+    result = result.filter(item =>
+      (item.patientName && item.patientName.toLowerCase().includes(query)) ||
+      (item.medicalRecordId && item.medicalRecordId.toString().includes(query)) ||
       (item.doctorDescription && item.doctorDescription.toLowerCase().includes(query))
     );
-    console.log('搜索筛选后长度:', result.length);
   }
-  
-  console.log('最终筛选结果长度:', result.length);
+
   return result;
 });
 
-const paginatedMedicalRecords = computed(() => {
-  return filteredMedicalRecords.value;
+const paginatedMedicalRecords = computed(() => filteredMedicalRecords.value);
+
+const recordStats = computed(() => {
+  const records = Array.isArray(medicalRecords.value) ? medicalRecords.value : [];
+  return {
+    total: records.length,
+    unused: records.filter(item => item.isPurchasable === 0).length,
+    used: records.filter(item => item.isPurchasable === 1).length,
+    notIssued: records.filter(item => item.isPurchasable === 2).length
+  };
 });
 
-// 方法
 function getPrescriptionStatusType(status) {
   switch (status) {
-    case 0: return 'info'; // 未使用
-    case 1: return 'success'; // 已使用
-    case 2: return 'warning'; // 未开具
-    default: return 'info';
+    case 0:
+      return 'info';
+    case 1:
+      return 'success';
+    case 2:
+      return 'warning';
+    default:
+      return 'info';
   }
 }
 
 function getPrescriptionStatusText(status) {
   switch (status) {
-    case 0: return '未使用';
-    case 1: return '已使用';
-    case 2: return '未开具';
-    default: return '未知';
+    case 0:
+      return '未使用';
+    case 1:
+      return '已使用';
+    case 2:
+      return '未开具';
+    default:
+      return '未知';
   }
 }
 
 async function fetchMedicalRecords() {
   loading.value = true;
-  // 清空之前的数据，避免显示缓存数据
   medicalRecords.value = [];
-  
+
   try {
-    // 构建分页参数
     const params = {
       pageNum: currentPage.value,
       pageSize: pageSize.value
     };
-    
+
     const response = await getMedicalRecordList(params);
-    
+
     if (response.code === 200) {
-      console.log('就诊记录API响应:', response);
-      
-      // 确保数据是数组格式
       if (response.data && Array.isArray(response.data)) {
         medicalRecords.value = response.data;
-        total.value = response.data.length; // 如果后端没有返回总数，使用当前数据长度
-        console.log('直接使用数组数据，长度:', medicalRecords.value.length);
+        total.value = response.data.length;
       } else if (response.data && Array.isArray(response.data.list)) {
-        // 如果数据在list字段中
         medicalRecords.value = response.data.list;
         total.value = response.data.total || response.data.list.length;
-        console.log('使用list数据，长度:', medicalRecords.value.length);
       } else if (response.data && Array.isArray(response.data.records)) {
-        // 如果数据在records字段中
         medicalRecords.value = response.data.records;
         total.value = response.data.total || response.data.records.length;
-        console.log('使用records数据，长度:', medicalRecords.value.length);
       } else {
-        // 如果data为null或空，清空数据
         medicalRecords.value = [];
         total.value = 0;
-        console.log('API返回空数据，清空medicalRecords');
       }
-      
-      console.log('最终medicalRecords数据:', medicalRecords.value);
-    } else {
-      console.error('API响应错误:', response);
-      ElMessage.error(`获取就诊记录失败: ${response.message || '未知错误'}`);
-      medicalRecords.value = [];
-      total.value = 0;
+      return;
     }
+
+    ElMessage.error(`获取就诊记录失败: ${response.message || '未知错误'}`);
+    medicalRecords.value = [];
+    total.value = 0;
   } catch (error) {
     console.error('获取就诊记录失败:', error);
     ElMessage.error(`获取就诊记录失败: ${error.message}`);
@@ -411,30 +431,29 @@ async function fetchMedicalRecords() {
 }
 
 function refreshMedicalRecords() {
-  currentPage.value = 1; // 重置到第一页
+  currentPage.value = 1;
   fetchMedicalRecords();
   ElMessage.success('就诊记录已刷新');
 }
 
 function handleFilterChange() {
-  currentPage.value = 1; // 重置到第一页
+  currentPage.value = 1;
   fetchMedicalRecords();
 }
 
 function handleDateChange() {
-  currentPage.value = 1; // 重置到第一页
+  currentPage.value = 1;
   fetchMedicalRecords();
 }
 
 function handleSearch() {
-  currentPage.value = 1; // 重置到第一页
+  currentPage.value = 1;
   fetchMedicalRecords();
 }
 
-// 分页处理函数
 function handleSizeChange(newSize) {
   pageSize.value = newSize;
-  currentPage.value = 1; // 重置到第一页
+  currentPage.value = 1;
   fetchMedicalRecords();
 }
 
@@ -453,68 +472,33 @@ function viewMedicalRecordDetail(medicalRecord) {
 }
 
 async function viewPrescriptionFromRecord() {
-  if (selectedMedicalRecord.value) {
-    try {
-      const response = await getPrescriptionInfoByMedicalRecordId(selectedMedicalRecord.value.medicalRecordId);
-      
-      if (response.code === 200 && response.data) {
-        // 合并原有的处方信息和后端获取的药品数据
-        selectedPrescription.value = {
-          ...selectedMedicalRecord.value.prescription, // 保留原有的处方基本信息
-          id: selectedMedicalRecord.value.medicalRecordId, // 设置处方编号
-          drugs: response.data, // 使用后端获取的药品数据
-          medicineCount: response.data.length,
-          total_amount: calculateTotalPrice(response.data)
-        };
-        prescriptionDrawerVisible.value = true;
-      } else {
-        ElMessage.error(`获取处方信息失败: ${response.message || '未知错误'}`);
-      }
-    } catch (error) {
-      console.error('获取处方信息失败:', error);
-      ElMessage.error(`获取处方信息失败: ${error.message}`);
-    }
-  }
-}
+  if (!selectedMedicalRecord.value) return;
 
-async function viewPrescriptionDetail(medicalRecord) {
   try {
-    const response = await getPrescriptionInfoByMedicalRecordId(medicalRecord.medicalRecordId);
-    
+    const response = await getPrescriptionInfoByMedicalRecordId(selectedMedicalRecord.value.medicalRecordId);
     if (response.code === 200 && response.data) {
-      // 合并原有的处方信息和后端获取的药品数据
       selectedPrescription.value = {
-        ...medicalRecord.prescription, // 保留原有的处方基本信息
-        id: medicalRecord.medicalRecordId, // 设置处方编号
-        drugs: response.data, // 使用后端获取的药品数据
+        ...selectedMedicalRecord.value.prescription,
+        id: selectedMedicalRecord.value.medicalRecordId,
+        drugs: response.data,
         medicineCount: response.data.length,
         total_amount: calculateTotalPrice(response.data)
       };
       prescriptionDrawerVisible.value = true;
-    } else {
-      ElMessage.error(`获取处方信息失败: ${response.message || '未知错误'}`);
+      return;
     }
+    ElMessage.error(`获取处方信息失败: ${response.message || '未知错误'}`);
   } catch (error) {
     console.error('获取处方信息失败:', error);
     ElMessage.error(`获取处方信息失败: ${error.message}`);
   }
 }
 
-function printPrescription() {
-  ElMessage.success('处方打印功能已触发');
-  // 实际项目中可以调用打印API或使用浏览器打印功能
-  // window.print();
-}
-
-// 辅助函数：计算总金额
 function calculateTotalPrice(drugs) {
-  if (!drugs || drugs.length === 0) {
-    return 0;
-  }
+  if (!drugs || drugs.length === 0) return 0;
   return drugs.reduce((sum, drug) => sum + (drug.price || 0) * (drug.drugQuantity || 0), 0);
 }
 
-// 生命周期钩子
 onMounted(() => {
   fetchMedicalRecords();
 });
@@ -522,44 +506,187 @@ onMounted(() => {
 
 <style scoped>
 .medical-records-container {
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
+.records-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+  gap: 20px;
+  padding: 28px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 36%),
+    radial-gradient(circle at top right, rgba(45, 212, 191, 0.12), transparent 30%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.98));
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.1);
+}
+
+.hero-badge {
+  display: inline-flex;
   align-items: center;
-  margin-bottom: 20px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #1d4ed8;
+  background: rgba(219, 234, 254, 0.9);
 }
 
-.page-header h2 {
+.hero-copy h2 {
+  margin: 14px 0 10px;
+  font-size: 34px;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+
+.hero-copy p {
   margin: 0;
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--app-text);
-  letter-spacing: -0.2px;
+  max-width: 700px;
+  line-height: 1.8;
+  color: #475569;
 }
 
-.header-actions {
+.hero-side {
+  display: grid;
+  gap: 14px;
+}
+
+.hero-kpi {
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 20px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(148, 163, 184, 0.18);
 }
 
+.hero-kpi span,
+.stat-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.hero-kpi strong {
+  font-size: 30px;
+  line-height: 1;
+  color: #0f172a;
+}
+
+.hero-kpi small {
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.hero-kpi.muted strong {
+  color: #0f766e;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.stat-card {
+  padding: 20px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
+}
+
+.stat-card strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 30px;
+  color: #0f172a;
+}
+
+.stat-card small {
+  display: block;
+  margin-top: 8px;
+  line-height: 1.65;
+  color: #64748b;
+}
+
+.accent-blue strong {
+  color: #1d4ed8;
+}
+
+.accent-green strong {
+  color: #047857;
+}
+
+.accent-amber strong {
+  color: #b45309;
+}
+
+.filter-card,
 .medical-record-card {
-  margin-bottom: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 24px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+}
+
+.filter-header,
+.table-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.filter-header h3,
+.table-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.filter-header p,
+.table-header p {
+  margin: 6px 0 0;
+  color: #64748b;
+  line-height: 1.7;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: 180px 220px minmax(220px, 1fr);
+  gap: 14px;
+  margin-top: 18px;
 }
 
 .patient-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
-.table-actions {
+.patient-copy {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.patient-copy span {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.patient-copy small {
+  color: #64748b;
 }
 
 .pagination-container {
@@ -568,11 +695,7 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-/* 就诊记录详情样式 */
-.medical-record-detail {
-  padding: 12px 20px 20px;
-}
-
+.medical-record-detail,
 .prescription-detail {
   padding: 12px 20px 20px;
 }
@@ -585,7 +708,8 @@ onMounted(() => {
   border-bottom: 1px solid var(--app-border);
 }
 
-.record-id, .prescription-id {
+.record-id,
+.prescription-id {
   font-size: 16px;
   font-weight: 600;
   color: var(--app-text);
@@ -604,7 +728,7 @@ onMounted(() => {
 .patient-info-detail h3 {
   margin: 0 0 8px 0;
   font-size: 18px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .patient-info-detail p {
@@ -651,7 +775,7 @@ onMounted(() => {
 
 .total-price {
   font-size: 18px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--el-color-danger);
 }
 
@@ -662,32 +786,8 @@ onMounted(() => {
   margin-top: 20px;
 }
 
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .header-actions {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-  
-  .price-summary {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .price-item {
-    margin-left: 0;
-  }
-}
-
-/* 动画效果 */
 .el-table :deep(tbody tr) {
-  transition: all 0.3s;
+  transition: all 0.25s;
   cursor: pointer;
 }
 
@@ -698,25 +798,61 @@ onMounted(() => {
   position: relative;
 }
 
-:deep(.el-drawer__body) {
-  padding: 0;
-}
-
-.detail-header, .patient-section, .detail-content, .detail-actions {
-  animation: fadeIn 0.3s ease-in-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* 表格样式增强 */
 .el-table :deep(th) {
   background-color: rgba(15, 23, 42, 0.04) !important;
 }
 
 .el-table :deep(.el-table__row:nth-child(even)) {
   background-color: rgba(15, 23, 42, 0.015);
+}
+
+:deep(.el-drawer__body) {
+  padding: 0;
+}
+
+@media (max-width: 1200px) {
+  .records-hero,
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .records-hero,
+  .stats-grid,
+  .filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-header,
+  .table-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 768px) {
+  .records-hero {
+    padding: 22px;
+    border-radius: 24px;
+  }
+
+  .hero-copy h2 {
+    font-size: 28px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .price-summary {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .price-item {
+    margin-left: 0;
+  }
 }
 </style>

@@ -4,10 +4,21 @@
       <template #header>
         <div class="card-header">
           <h2>预约挂号</h2>
-          <el-button type="primary" @click="goToAppointmentList">我的预约</el-button>
-          <el-button type="info" plain @click="triageDialogVisible = true">AI 推荐科室</el-button>
+          <div class="card-header-actions">
+            <el-button type="info" plain @click="goToAiTriage">AI 智能分诊</el-button>
+            <el-button type="primary" @click="goToAppointmentList">我的预约</el-button>
+          </div>
         </div>
       </template>
+
+      <div class="ai-entrance-banner">
+        <div class="ai-entrance-copy">
+          <div class="ai-entrance-label">独立模块</div>
+          <h3>不确定挂号方向时，先进入 AI 智能分诊</h3>
+          <p>AI 会先追问症状，再结合院内真实科室和排班信息推荐挂号方向。</p>
+        </div>
+        <el-button type="primary" size="large" @click="goToAiTriage">去做 AI 分诊</el-button>
+      </div>
       
       <!-- 提示信息 -->
       <el-alert
@@ -279,66 +290,24 @@
       </div>
     </el-card>
 
-    <el-dialog
-      v-model="triageDialogVisible"
-      title="AI 科室推荐（仅供参考）"
-      width="520px"
-    >
-      <el-form :model="triageForm" label-width="90px">
-        <el-form-item label="症状描述">
-          <el-input
-            v-model="triageForm.description"
-            type="textarea"
-            :rows="4"
-            placeholder="请描述主要症状，例如：持续咳嗽三天伴低热、轻度胸闷"
-          />
-        </el-form-item>
-      </el-form>
-      <el-alert
-        title="AI 推荐仅供参考，如症状严重请直接就医。"
-        type="warning"
-        :closable="false"
-        show-icon
-        style="margin-bottom: 10px"
-      />
-      <div v-if="triageResult.recommendedDepartments.length" class="triage-result">
-        <p>推荐科室：<strong>{{ triageResult.recommendedDepartments.join('，') }}</strong></p>
-        <small>{{ triageResult.rationale }}</small>
-      </div>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="triageDialogVisible = false">取消</el-button>
-          <el-button type="primary" :loading="triageLoading" @click="fetchTriageSuggestion">获取推荐</el-button>
-        </span>
-      </template>
-    </el-dialog>
-
-    <el-dialog
-      v-model="aiUnavailableDialogVisible"
-      title="AI 服务不可用"
-      width="720px"
-    >
-      <pre class="ai-unavailable-pre">{{ aiUnavailableText }}</pre>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button type="primary" @click="aiUnavailableDialogVisible = false">我知道了</el-button>
-        </span>
-      </template>
-    </el-dialog>
-    
-
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Plus, User, Checked, OfficeBuilding } from '@element-plus/icons-vue'
-import { getDepartmentList, getSubDepartmentList, getScheduleList, createAppointment, getAppointmentStatus } from '../../api/appointment'
+import {
+  getDepartmentList,
+  getSubDepartmentList,
+  getScheduleList,
+  createAppointment,
+  getAppointmentStatus,
+  getAppointmentPaymentForm
+} from '../../api/appointment'
 import { getCaseList } from '../../api/user'
-import { getTriageSuggestion } from '../../api/ai'
-import { getFutureDates, formatDate } from '../../utils'
+import { getFutureDates } from '../../utils'
 
 const router = useRouter()
 const route = useRoute()
@@ -372,28 +341,8 @@ const patients = ref([])
 
 // 加载状态
 const submitting = ref(false)
-const triageLoading = ref(false)
-const triageDialogVisible = ref(false)
-const aiUnavailableDialogVisible = ref(false)
-const aiUnavailableText = ref('')
 const APPOINTMENT_POLL_INTERVAL = 1000
 const APPOINTMENT_POLL_TIMEOUT = 70000
-
-const AI_UNAVAILABLE_FALLBACK = `AI 分诊暂时不可用。
-
-可能原因：
-- 后端未配置 DeepSeek Key
-- AI 服务连接失败
-- 当前请求触发了限流
-
-你仍然可以手动选择科室并继续挂号。`
-const triageForm = reactive({
-  description: ''
-})
-const triageResult = reactive({
-  recommendedDepartments: [],
-  rationale: ''
-})
 
 // 计算属性：上午排班
 const morningSchedules = computed(() => {
@@ -455,36 +404,18 @@ const formatDateDisplay = (dateStr) => {
   return `${date.getMonth() + 1}月${date.getDate()}日`
 }
 
-// AI 推荐科室
-const fetchTriageSuggestion = async () => {
-  if (!triageForm.description || !triageForm.description.trim()) {
-    ElMessage.warning('请先填写症状描述')
-    return
+const goToAiTriage = () => {
+  router.push('/ai-triage')
+}
+
+const redirectToPayment = async (registrationId) => {
+  const paymentRes = await getAppointmentPaymentForm(registrationId)
+  if (paymentRes.code !== 200 || !paymentRes.data?.formHtml) {
+    throw new Error(paymentRes.message || '拉起支付页面失败')
   }
-  triageLoading.value = true
-  try {
-    triageResult.recommendedDepartments = []
-    triageResult.rationale = ''
-    const resp = await getTriageSuggestion({
-      description: triageForm.description
-    })
-    if (resp.code === 200 && resp.data) {
-      triageResult.recommendedDepartments = resp.data.recommendedDepartments || []
-      triageResult.rationale = resp.data.rationale || ''
-    } else {
-      ElMessage.warning(resp.message || '获取推荐失败')
-    }
-  } catch (error) {
-    console.error('AI 推荐失败', error)
-    if (error && error.code === 9001) {
-      aiUnavailableText.value = error.message || AI_UNAVAILABLE_FALLBACK
-      aiUnavailableDialogVisible.value = true
-      return
-    }
-    ElMessage.error(error.message || 'AI 推荐失败')
-  } finally {
-    triageLoading.value = false
-  }
+  document.open()
+  document.write(paymentRes.data.formHtml)
+  document.close()
 }
 
 // 下一步
@@ -649,6 +580,12 @@ const submitAppointment = async () => {
         return
       }
 
+      if (status.status === 'PAYING' && status.registrationId) {
+        ElMessage.success(status.message || '挂号创建成功，正在进入支付确认页')
+        await redirectToPayment(status.registrationId)
+        return
+      }
+
       if (appointmentForm.appointmentDate) {
         await selectDate(appointmentForm.appointmentDate)
       }
@@ -670,7 +607,7 @@ const pollAppointmentStatus = async (token) => {
     const statusResp = await getAppointmentStatus(token)
     if (statusResp.code === 200 && statusResp.data) {
       const status = statusResp.data.status
-      if (status === 'SUCCESS' || status === 'FAILED') {
+      if (status === 'SUCCESS' || status === 'FAILED' || status === 'PAYING') {
         return statusResp.data
       }
     }
@@ -1077,9 +1014,18 @@ onMounted(async () => {
 }
 
 .card-header {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
   margin-bottom: 35px;
   position: relative;
+}
+
+.card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .card-header h2 {
@@ -1100,6 +1046,42 @@ onMounted(async () => {
   height: 4px;
   background: linear-gradient(90deg, var(--primary-500) 0%, var(--primary-600) 100%);
   border-radius: 2px;
+}
+
+.ai-entrance-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px 22px;
+  margin-bottom: 20px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgb(var(--primary-500-rgb) / 0.1) 0%, rgb(var(--primary-200-rgb) / 0.28) 100%);
+  border: 1px solid rgb(var(--primary-400-rgb) / 0.22);
+}
+
+.ai-entrance-copy h3 {
+  margin: 8px 0 6px;
+  font-size: 20px;
+  color: var(--primary-800);
+}
+
+.ai-entrance-copy p {
+  margin: 0;
+  color: var(--neutral-700);
+  line-height: 1.7;
+}
+
+.ai-entrance-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgb(var(--primary-700-rgb) / 0.12);
+  color: var(--primary-700);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .form-section {
@@ -1508,6 +1490,21 @@ onMounted(async () => {
   .appointment-card {
     padding: 25px;
   }
+
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .card-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .ai-entrance-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
   
   .card-header h2 {
     font-size: 28px;
@@ -1620,16 +1617,4 @@ onMounted(async () => {
   font-weight: 500;
 }
 
-.ai-unavailable-pre {
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-height: 60vh;
-  overflow: auto;
-  margin: 0;
-  padding: 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgb(var(--primary-500-rgb) / 0.15);
-  color: var(--neutral-900);
-}
 </style>

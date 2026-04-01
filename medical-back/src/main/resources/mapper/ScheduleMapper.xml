@@ -19,4 +19,12 @@
           and current_appointment_count &lt; appointment_limit
     </update>
 
+    <update id="releaseAppointmentSlot">
+        update schedule
+        set current_appointment_count = current_appointment_count - 1
+        where id = #{scheduleId}
+          and is_deleted = 0
+          and current_appointment_count &gt; 0
+    </update>
+
 </mapper>

@@ -75,7 +75,7 @@ flowchart TB
     I1[MySQL]
     I2[Redis]
     I3[MinIO]
-    I4[Netty WS]
+    I4[Spring WebSocket]
   end
 
   A1 --> S1
@@ -126,7 +126,7 @@ sequenceDiagram
   participant U as 患者端
   participant D as 医生端
   participant B as 后端服务
-  participant W as Netty WS
+  participant W as WebSocket
 
   U->>B: 登录/获取 token
   D->>B: 登录/获取 token

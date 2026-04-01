@@ -8,14 +8,13 @@ export function testWebSocketConnection(roomId, token) {
     // WebSocket连接直接连接到后端，不通过Vite代理
     let backendHost
     if (import.meta.env.DEV) {
-      // 开发环境：直接连接到 Netty 服务
-      backendHost = 'localhost:9001'
+      backendHost = 'localhost:8080'
     } else {
       // 生产环境：使用当前域名
       backendHost = window.location.host
     }
 
-    const wsUrl = `ws://${backendHost}/netty/ws/chat/${roomId}?token=${token}`
+    const wsUrl = `ws://${backendHost}/treat/ws/chat/${roomId}?token=${token}`
     console.log('测试WebSocket连接URL:', wsUrl)
     console.log('当前环境:', import.meta.env.MODE)
     console.log('后端主机:', backendHost)

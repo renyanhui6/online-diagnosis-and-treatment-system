@@ -18,6 +18,11 @@
           <el-icon><HomeFilled /></el-icon>
           <span>首页</span>
         </el-menu-item>
+
+        <el-menu-item index="/ai-triage">
+          <el-icon><ChatDotRound /></el-icon>
+          <span>AI 智能分诊</span>
+        </el-menu-item>
         
         <el-sub-menu index="/appointment">
           <template #title>
@@ -129,6 +134,7 @@ import {
   User,
   UserFilled,
   Lock,
+  ChatDotRound,
   ArrowDown,
   SwitchButton,
 } from '@element-plus/icons-vue'
@@ -179,6 +185,10 @@ onMounted(() => {
   width: 100%;
   position: relative;
   z-index: 1;
+  background:
+    radial-gradient(circle at 12% 8%, rgb(var(--primary-300-rgb) / 0.14) 0%, transparent 28%),
+    radial-gradient(circle at 86% 12%, rgb(var(--primary-200-rgb) / 0.18) 0%, transparent 26%),
+    linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
 }
 
 .main-container {
@@ -187,7 +197,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  padding: 15px;
+  padding: 18px 18px 16px;
   width: calc(100% - 250px);
   box-sizing: border-box;
   position: relative;
@@ -196,51 +206,50 @@ onMounted(() => {
 
 /* 磨砂玻璃面板 */
 .glass-panel {
-  background-color: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: var(--shadow-md);
+  background-color: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.56);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
   transition: var(--transition);
 }
 
 /* 头部样式 */
 .header {
-  height: 60px;
+  min-height: 72px;
   border-radius: var(--radius-xl);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
-  margin-bottom: 15px;
+  padding: 0 22px;
+  margin-bottom: 18px;
   width: 100%;
   box-sizing: border-box;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.86) 0%, rgb(var(--primary-100-rgb) / 0.55) 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgb(var(--primary-100-rgb) / 0.44) 100%);
 }
 
 .header:hover {
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
+  box-shadow: 0 24px 52px rgba(15, 23, 42, 0.10);
 }
 
 /* 内容区样式 */
 .content {
   flex: 1;
   border-radius: var(--radius-xl);
-  padding: 20px;
-  margin-bottom: 15px;
+  padding: 24px;
+  margin-bottom: 16px;
   overflow-y: auto;
   width: 100%;
   box-sizing: border-box;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.86) 0%, rgb(var(--primary-50-rgb) / 0.55) 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgb(var(--primary-50-rgb) / 0.48) 100%);
 }
 
 .content:hover {
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 24px 52px rgba(15, 23, 42, 0.10);
 }
 
 /* 底部样式 */
 .footer {
-  height: 50px;
+  min-height: 52px;
   border-radius: var(--radius-xl);
   display: flex;
   align-items: center;
@@ -250,22 +259,23 @@ onMounted(() => {
   font-size: 14px;
   width: 100%;
   box-sizing: border-box;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.86) 0%, rgb(var(--primary-100-rgb) / 0.55) 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.88) 0%, rgb(var(--primary-100-rgb) / 0.44) 100%);
 }
 
 .footer:hover {
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.08);
 }
 
 /* 侧边栏样式 */
 .sidebar {
   width: 250px;
-  background: linear-gradient(180deg, var(--primary-600) 0%, var(--primary-700) 50%, var(--primary-800) 100%);
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.14), transparent 30%),
+    linear-gradient(180deg, #0f4bbd 0%, #1457d0 46%, #1147ad 100%);
   color: #ffffff;
   display: flex;
   flex-direction: column;
-  box-shadow: var(--shadow-xl);
+  box-shadow: 12px 0 36px rgba(15, 23, 42, 0.16);
   position: fixed;
   left: 0;
   top: 0;
@@ -289,12 +299,15 @@ onMounted(() => {
 
 /* Logo样式 */
 .logo {
-  padding: 20px;
-  text-align: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.1);
+  padding: 22px 20px 20px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
   position: relative;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
 .logo::after {
@@ -317,16 +330,17 @@ onMounted(() => {
 .logo img {
   width: 50px;
   height: 50px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
   filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
 }
 
 .logo h2 {
   margin: 0;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
   color: #ffffff;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  line-height: 1.4;
 }
 
 /* 菜单样式 */
@@ -334,14 +348,17 @@ onMounted(() => {
   border-right: none;
   background-color: transparent !important;
   flex: 1;
+  padding: 10px 10px 120px;
 }
 
 .el-menu-item, .el-sub-menu__title {
   color: rgba(255, 255, 255, 0.9) !important;
-  height: 50px;
-  line-height: 50px;
+  height: 52px;
+  line-height: 52px;
   position: relative;
   overflow: hidden;
+  margin-bottom: 8px;
+  border-radius: 14px;
 }
 
 .el-menu-item::before, .el-sub-menu__title::before {
@@ -367,6 +384,7 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.2) !important;
   color: #ffffff !important;
   position: relative;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.10);
 }
 
 .el-menu-item.is-active::after {
@@ -386,10 +404,11 @@ onMounted(() => {
   align-items: center;
   gap: 10px;
   cursor: pointer;
-  padding: 5px 10px;
+  padding: 8px 12px;
   border-radius: var(--radius-full);
-  background: rgb(var(--primary-50-rgb) / 0.2);
+  background: rgb(var(--primary-50-rgb) / 0.24);
   transition: var(--transition);
+  border: 1px solid rgb(var(--primary-100-rgb) / 0.28);
 }
 
 .user-info:hover {
@@ -442,11 +461,11 @@ onMounted(() => {
   .main-container {
     margin-left: 200px;
     width: calc(100% - 200px);
-    padding: 10px;
+    padding: 12px;
   }
   
   .header, .content, .footer {
-    padding: 10px;
+    padding: 12px;
   }
   
   .logo h2 {

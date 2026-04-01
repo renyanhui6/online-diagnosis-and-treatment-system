@@ -60,6 +60,9 @@ mybatis-plus:
 app:
   auth:
     dev-token-enabled: false
+  websocket:
+    path: /ws/chat
+    patient-response-timeout-minutes: 3
   registration:
     reservation:
       enabled: true
@@ -69,14 +72,6 @@ app:
       scan-future-days: 30
       scan-batch-size: 100
       consumer-max-retries: 5
-
-netty:
-  ws:
-    enabled: true
-    port: 9001
-    path: /netty/ws/chat
-    idle-seconds: 90
-    patient-response-timeout-minutes: 3
 
 ai:
   guard:
@@ -96,3 +91,9 @@ ai:
     api-key: ${DEEPSEEK_API_KEY:}
     model: ${DEEPSEEK_MODEL:deepseek-chat}
     timeout-seconds: ${DEEPSEEK_TIMEOUT_SECONDS:20}
+
+payment:
+  mock:
+    return-url: ${PAYMENT_RETURN_URL:http://127.0.0.1:5173/payment/result}
+    payment-expire-minutes: ${PAYMENT_EXPIRE_MINUTES:15}
+    expire-scan-interval-ms: ${PAYMENT_EXPIRE_SCAN_INTERVAL_MS:60000}

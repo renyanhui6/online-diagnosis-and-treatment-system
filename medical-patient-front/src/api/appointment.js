@@ -51,6 +51,50 @@ export function getAppointmentStatus(token) {
   })
 }
 
+// 获取支付宝支付表单
+export function getAppointmentPaymentForm(registrationId) {
+  return request({
+    url: '/front/patient/appointment/payment/form',
+    method: 'get',
+    params: {
+      registrationId
+    }
+  })
+}
+
+// 查询支付结果
+export function getAppointmentPaymentResult(outTradeNo) {
+  return request({
+    url: '/front/patient/appointment/payment/result',
+    method: 'get',
+    params: {
+      outTradeNo
+    }
+  })
+}
+
+// 模拟支付成功
+export function mockAppointmentPaymentSuccess(outTradeNo) {
+  return request({
+    url: '/front/patient/appointment/payment/mock/success',
+    method: 'post',
+    params: {
+      outTradeNo
+    }
+  })
+}
+
+// 模拟取消支付
+export function mockAppointmentPaymentCancel(outTradeNo) {
+  return request({
+    url: '/front/patient/appointment/payment/mock/cancel',
+    method: 'post',
+    params: {
+      outTradeNo
+    }
+  })
+}
+
 // 获取用户预约订单列表
 export function getUserAppointmentOrders(params) {
   return request({
@@ -85,5 +129,9 @@ export const APPOINTMENT_API = {
   getScheduleList,
   createAppointment,
   getAppointmentStatus,
+  getAppointmentPaymentForm,
+  getAppointmentPaymentResult,
+  mockAppointmentPaymentSuccess,
+  mockAppointmentPaymentCancel,
   getUserAppointmentOrders
 }

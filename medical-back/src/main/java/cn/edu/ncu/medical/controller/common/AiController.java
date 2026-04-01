@@ -7,6 +7,8 @@ import cn.edu.ncu.medical.ai.AiRequestSanitizer;
 import cn.edu.ncu.medical.ai.AiSanitizeResult;
 import cn.edu.ncu.medical.entity.dto.DoctorAiRequest;
 import cn.edu.ncu.medical.entity.dto.DoctorAiResponse;
+import cn.edu.ncu.medical.entity.dto.TriageChatRequest;
+import cn.edu.ncu.medical.entity.dto.TriageChatResponse;
 import cn.edu.ncu.medical.entity.dto.TriageRequest;
 import cn.edu.ncu.medical.entity.dto.TriageResponse;
 import cn.edu.ncu.medical.exception.MyRuntimeException;
@@ -58,5 +60,20 @@ public class AiController {
         aiRateLimiter.check(context);
         aiAuditLogger.logTriage(context, sanitized.getRequest(), sanitized.getMeta());
         return Result.ok(aiService.triage(sanitized.getRequest()));
+    }
+
+    /**
+     * 患者端 AI 多轮分诊客服
+     */
+    @PostMapping("/patient/triage/chat")
+    public Result<TriageChatResponse> patientTriageChat(@RequestBody TriageChatRequest request, HttpServletRequest httpServletRequest) {
+        if (request == null) {
+            throw new MyRuntimeException(ResultCodeEnum.PARAM_ERROR);
+        }
+        AiRequestContext context = AiRequestContext.from(httpServletRequest, "patient_triage_chat");
+        AiSanitizeResult<TriageChatRequest> sanitized = aiRequestSanitizer.sanitizeTriageChatRequest(request);
+        aiRateLimiter.check(context);
+        aiAuditLogger.logTriageChat(context, sanitized.getRequest(), sanitized.getMeta());
+        return Result.ok(aiService.triageChat(sanitized.getRequest()));
     }
 }

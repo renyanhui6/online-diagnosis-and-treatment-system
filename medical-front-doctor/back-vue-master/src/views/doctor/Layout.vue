@@ -32,6 +32,7 @@ const isCollapse = ref(false);
   width: 100%;
   height: 100vh;
   overflow: hidden;
+  position: relative;
 }
 
 .main-container {
@@ -39,13 +40,30 @@ const isCollapse = ref(false);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0;
 }
 
 .app-main {
   flex: 1;
-  padding: 24px;
+  padding: 24px 28px 28px;
   overflow-y: auto;
   background-color: transparent;
+  position: relative;
+}
+
+.app-main::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 14%, rgba(59, 130, 246, 0.08) 0%, transparent 28%),
+    radial-gradient(circle at 84% 18%, rgba(16, 185, 129, 0.08) 0%, transparent 26%);
+}
+
+.app-main :deep(> *) {
+  position: relative;
+  z-index: 1;
 }
 
 /* 页面切换动画 */
@@ -62,5 +80,11 @@ const isCollapse = ref(false);
 .fade-transform-leave-to {
   opacity: 0;
   transform: translateX(-30px);
+}
+
+@media (max-width: 1024px) {
+  .app-main {
+    padding: 20px;
+  }
 }
 </style>

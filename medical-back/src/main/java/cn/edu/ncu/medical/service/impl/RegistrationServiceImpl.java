@@ -11,6 +11,7 @@ import cn.edu.ncu.medical.entity.vo.RegistrationInfo;
 import cn.edu.ncu.medical.exception.AppointmentException;
 import cn.edu.ncu.medical.mapper.RegistrationMapper;
 import cn.edu.ncu.medical.mapper.ScheduleMapper;
+import cn.edu.ncu.medical.payment.RegistrationPaymentService;
 import cn.edu.ncu.medical.registration.AppointmentReservationKeys;
 import cn.edu.ncu.medical.registration.AppointmentReservationPersistenceService;
 import cn.edu.ncu.medical.registration.AppointmentReservationProperties;
@@ -70,6 +71,8 @@ public class RegistrationServiceImpl extends ServiceImpl<RegistrationMapper, Reg
     private AppointmentReservationProperties appointmentReservationProperties;
     @Autowired
     private AppointmentReservationPersistenceService appointmentReservationPersistenceService;
+    @Autowired
+    private RegistrationPaymentService registrationPaymentService;
 
     private final Clock clock = Clock.systemDefaultZone();
 
@@ -223,7 +226,7 @@ public class RegistrationServiceImpl extends ServiceImpl<RegistrationMapper, Reg
         Registration registration = appointmentReservationPersistenceService.findActiveByToken(token);
         if (registration != null) {
             validatePatientOwnership(registration.getPatientId(), userId);
-            return successStatus(token, registration.getId(), SUCCESS_MESSAGE);
+            return paymentAwareStatus(token, registration);
         }
 
         return failedStatus(token, null, FAILED_MESSAGE);
@@ -324,7 +327,7 @@ public class RegistrationServiceImpl extends ServiceImpl<RegistrationMapper, Reg
             throw new AppointmentException(ResultCodeEnum.REPEAT_SUBMIT.getCode(), "当前真实就诊人已存在该排班挂号记录");
         }
         if (registration.getRequestToken() != null && !registration.getRequestToken().isBlank()) {
-            return successStatus(registration.getRequestToken(), registration.getId(), SUCCESS_MESSAGE);
+            return paymentAwareStatus(registration.getRequestToken(), registration);
         }
         throw new AppointmentException(ResultCodeEnum.REPEAT_SUBMIT.getCode(), "当前真实就诊人已存在该排班挂号记录");
     }
@@ -341,7 +344,7 @@ public class RegistrationServiceImpl extends ServiceImpl<RegistrationMapper, Reg
         Registration registration = appointmentReservationPersistenceService.findActiveByToken(existingToken);
         if (registration != null) {
             validatePatientOwnership(registration.getPatientId(), userId);
-            return successStatus(existingToken, registration.getId(), SUCCESS_MESSAGE);
+            return paymentAwareStatus(existingToken, registration);
         }
         throw new AppointmentException(ResultCodeEnum.REPEAT_SUBMIT.getCode(), "当前真实就诊人已存在该排班挂号请求");
     }
@@ -355,12 +358,41 @@ public class RegistrationServiceImpl extends ServiceImpl<RegistrationMapper, Reg
                     registrationId = registration.getId();
                 }
             }
+            if (registrationId != null) {
+                Registration registration = registrationMapper.selectById(registrationId);
+                if (registration != null) {
+                    return paymentAwareStatus(token, registration);
+                }
+            }
             return successStatus(token, registrationId, SUCCESS_MESSAGE);
         }
         if (record.getState() == AppointmentReservationState.ROLLED_BACK) {
             return failedStatus(token, null, defaultMessage(record.getMessage(), "挂号失败"));
         }
         return processingStatus(token, defaultMessage(record.getMessage(), PROCESSING_MESSAGE));
+    }
+
+    private AppointmentReservationStatusVo paymentAwareStatus(String token, Registration registration) {
+        if (registration == null) {
+            return failedStatus(token, null, FAILED_MESSAGE);
+        }
+        if (Objects.equals(registration.getRegistrationStatus(), cn.edu.ncu.medical.constant.RegistrationStatus.PENDING_PAYMENT.getCode())) {
+            AppointmentReservationStatusVo statusVo = new AppointmentReservationStatusVo(
+                    token,
+                    "PAYING",
+                    registration.getId(),
+                    "挂号已创建，请完成支付"
+            );
+            statusVo.setPaymentRequired(Boolean.TRUE);
+            var order = registrationPaymentService.getLatestOrder(registration.getId());
+            if (order != null) {
+                statusVo.setOutTradeNo(order.getOutTradeNo());
+                statusVo.setPaymentStatus(cn.edu.ncu.medical.constant.RegistrationPaymentStatus.fromCode(order.getPaymentStatus()).name());
+                statusVo.setPaymentExpireTime(order.getExpireTime());
+            }
+            return statusVo;
+        }
+        return successStatus(token, registration.getId(), SUCCESS_MESSAGE);
     }
 
     private AppointmentReservationStatusVo processingStatus(String token, String message) {

@@ -1,4 +1,4 @@
-package cn.edu.ncu.medical.netty;
+package cn.edu.ncu.medical.websocket;
 
 import cn.edu.ncu.medical.constant.RegistrationStatus;
 import cn.edu.ncu.medical.entity.Room;
@@ -10,29 +10,26 @@ import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
-import java.util.Map;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Netty 侧问诊超时调度（替代旧 WebSocket 内部定时器）。
- */
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class NettyConsultationTimeoutScheduler implements DisposableBean {
+public class ConsultationTimeoutScheduler implements DisposableBean {
 
     private final RoomService roomService;
     private final RegistrationService registrationService;
-    private final NettyServerProperties nettyServerProperties;
-    private final NettySessionRegistry nettySessionRegistry;
+    private final WebSocketProperties webSocketProperties;
+    private final SimpleWebSocketSessionRegistry sessionRegistry;
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread thread = new Thread(r, "netty-consultation-timeout");
+        Thread thread = new Thread(r, "consultation-timeout");
         thread.setDaemon(true);
         return thread;
     });
@@ -43,13 +40,12 @@ public class NettyConsultationTimeoutScheduler implements DisposableBean {
             return;
         }
         cancelPatientResponseTimeout(registrationId);
-
-        int timeoutMinutes = nettyServerProperties.getPatientResponseTimeoutMinutes();
-        ScheduledFuture<?> future = scheduler.schedule(() -> handleTimeout(registrationId, roomId),
-                timeoutMinutes, TimeUnit.MINUTES);
+        ScheduledFuture<?> future = scheduler.schedule(
+                () -> handleTimeout(registrationId, roomId),
+                webSocketProperties.getPatientResponseTimeoutMinutes(),
+                TimeUnit.MINUTES
+        );
         timeouts.put(registrationId, future);
-        log.info("Consultation timeout scheduled, registrationId={}, roomId={}, minutes={}",
-                registrationId, roomId, timeoutMinutes);
     }
 
     public void cancelPatientResponseTimeout(Long registrationId) {
@@ -64,10 +60,7 @@ public class NettyConsultationTimeoutScheduler implements DisposableBean {
 
     private void handleTimeout(Long registrationId, Long roomId) {
         try {
-            Room room = null;
-            if (roomId != null) {
-                room = roomService.getById(roomId);
-            }
+            Room room = roomId == null ? null : roomService.getById(roomId);
             if (room == null) {
                 room = roomService.getRoomByRegistrationId(registrationId);
             }
@@ -75,23 +68,17 @@ public class NettyConsultationTimeoutScheduler implements DisposableBean {
                 return;
             }
 
-            room.setRoomStatus(4); // 4-超时
+            room.setRoomStatus(4);
             room.setUpdateTime(new Date());
             roomService.updateById(room);
-            if (registrationService != null) {
-                registrationService.changeStatus(registrationId, RegistrationStatus.SUSPENDED.getCode());
-            }
+            registrationService.changeStatus(registrationId, RegistrationStatus.SUSPENDED.getCode());
 
             Map<String, Object> notification = new HashMap<>();
             notification.put("type", "patient_timeout");
             notification.put("roomId", room.getId());
             notification.put("registrationId", registrationId);
             notification.put("timestamp", new Date());
-
-            if (nettySessionRegistry != null) {
-                nettySessionRegistry.sendToDoctor(room.getDoctorId(), com.alibaba.fastjson.JSON.toJSONString(notification));
-            }
-            log.info("Consultation timeout fired, registrationId={}, roomId={}", registrationId, room.getId());
+            sessionRegistry.sendToDoctor(room.getDoctorId(), com.alibaba.fastjson.JSON.toJSONString(notification));
         } catch (Exception ex) {
             log.error("Consultation timeout failed, registrationId={}, roomId={}", registrationId, roomId, ex);
         } finally {

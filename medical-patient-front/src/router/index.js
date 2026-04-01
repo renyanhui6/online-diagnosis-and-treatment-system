@@ -46,10 +46,22 @@ const routes = [
         meta: { title: '预约挂号' }
       },
       {
+        path: 'ai-triage',
+        name: 'AiTriage',
+        component: () => import('../views/ai-triage/index.vue'),
+        meta: { title: 'AI 智能分诊' }
+      },
+      {
         path: 'appointment/list',
         name: 'AppointmentList',
         component: () => import('../views/appointment/list.vue'),
         meta: { title: '我的预约' }
+      },
+      {
+        path: 'payment/result',
+        name: 'PaymentResult',
+        component: () => import('../views/payment/result.vue'),
+        meta: { title: '支付结果' }
       },
       {
         path: 'appointment/chat/:id',

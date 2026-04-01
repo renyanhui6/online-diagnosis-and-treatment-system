@@ -26,12 +26,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       },
-      // 配置WebSocket代理 - 更精确的路径匹配
-      '/ws/netty/ws/chat': {
-        target: 'ws://localhost:9001',
+      // 配置WebSocket代理，统一走后端 8080 同端口 Spring WebSocket
+      '/treat/ws/chat': {
+        target: 'ws://localhost:8080',
         ws: true,
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/ws/, '')
+        changeOrigin: true
       }
     }
   },

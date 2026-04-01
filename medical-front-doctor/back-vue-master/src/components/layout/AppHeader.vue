@@ -18,6 +18,7 @@
           <el-breadcrumb-item>{{ route.meta.title }}</el-breadcrumb-item>
         </el-breadcrumb>
       </div>
+      <div class="header-note">{{ isDoctor ? '当日接诊与病历协同' : '运营、排班与资源治理' }}</div>
     </div>
     
     <div class="header-right">
@@ -124,19 +125,22 @@ function handleCommand(command) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 60px;
-  background: var(--app-surface);
-  backdrop-filter: blur(10px);
+  min-height: 72px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0.68) 100%);
+  backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--app-border);
   box-shadow: var(--app-shadow-sm);
-  padding: 0 20px;
+  padding: 0 22px;
   position: relative;
   z-index: 10;
+  margin: 16px 20px 0;
+  border-radius: 18px;
 }
 
 .header-left {
   display: flex;
   align-items: center;
+  gap: 12px;
 }
 
 .toggle-sidebar {
@@ -145,7 +149,15 @@ function handleCommand(command) {
 }
 
 .breadcrumb {
-  margin-left: 8px;
+  margin-left: 4px;
+}
+
+.header-note {
+  font-size: 12px;
+  color: var(--app-text-muted);
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.08);
 }
 
 .header-right {
@@ -163,13 +175,16 @@ function handleCommand(command) {
   display: flex;
   align-items: center;
   cursor: pointer;
-  padding: 0 8px;
+  padding: 6px 10px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  background: rgba(255, 255, 255, 0.66);
 }
 
 .username {
   margin: 0 8px;
   font-size: 14px;
   color: var(--app-text);
+  font-weight: 600;
 }
 
 /* 添加动画效果 */
@@ -196,6 +211,17 @@ function handleCommand(command) {
 }
 
 .user-info:hover {
-  background-color: rgba(15, 23, 42, 0.05);
+  background-color: rgba(37, 99, 235, 0.06);
+}
+
+@media (max-width: 1024px) {
+  .app-header {
+    margin: 12px 14px 0;
+    padding: 0 16px;
+  }
+
+  .header-note {
+    display: none;
+  }
 }
 </style>

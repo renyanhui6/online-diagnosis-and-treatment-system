@@ -1,6 +1,7 @@
 package cn.edu.ncu.medical.ai;
 
 import cn.edu.ncu.medical.entity.dto.DoctorAiRequest;
+import cn.edu.ncu.medical.entity.dto.TriageChatRequest;
 import cn.edu.ncu.medical.entity.dto.TriageRequest;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
@@ -43,6 +44,21 @@ public class AiAuditLogger {
         payload.put("descriptionLength", meta.getDescriptionLength());
         payload.put("symptomCount", meta.getSymptomCount());
         payload.put("symptomsTotalLength", meta.getSymptomsTotalLength());
+        payload.put("masked", meta.isMasked());
+        payload.put("truncated", meta.isTruncated());
+        log.info("AI_AUDIT {}", JSON.toJSONString(payload));
+    }
+
+    public void logTriageChat(AiRequestContext context, TriageChatRequest request, AiSanitizeMeta meta) {
+        if (!properties.isAuditEnabled()) {
+            return;
+        }
+        JSONObject payload = basePayload(context);
+        payload.put("event", "ai_triage_chat");
+        payload.put("sessionId", request.getSessionId());
+        payload.put("age", request.getAge());
+        payload.put("gender", request.getGender());
+        payload.put("messageLength", meta.getDescriptionLength());
         payload.put("masked", meta.isMasked());
         payload.put("truncated", meta.isTruncated());
         log.info("AI_AUDIT {}", JSON.toJSONString(payload));

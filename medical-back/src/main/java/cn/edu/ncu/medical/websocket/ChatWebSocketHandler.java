@@ -1,51 +1,59 @@
-package cn.edu.ncu.medical.netty;
+package cn.edu.ncu.medical.websocket;
 
 import cn.edu.ncu.medical.entity.ChatMessage;
 import cn.edu.ncu.medical.entity.Room;
 import cn.edu.ncu.medical.service.ChatMessageService;
 import cn.edu.ncu.medical.service.RoomService;
-import cn.edu.ncu.medical.websocket.ChatController;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
-import io.netty.handler.timeout.IdleStateEvent;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * 文本帧处理：心跳、简单聊天广播、长连接通知。
- */
+@Component
+@RequiredArgsConstructor
 @Slf4j
-public class NettyTextFrameHandler extends SimpleChannelInboundHandler<TextWebSocketFrame> {
+public class ChatWebSocketHandler extends TextWebSocketHandler {
 
-    private final NettySessionRegistry sessionRegistry;
+    private final SimpleWebSocketSessionRegistry sessionRegistry;
     private final ChatMessageService chatMessageService;
     private final RoomService roomService;
 
-    public NettyTextFrameHandler(NettySessionRegistry sessionRegistry, ChatMessageService chatMessageService, RoomService roomService) {
-        this.sessionRegistry = sessionRegistry;
-        this.chatMessageService = chatMessageService;
-        this.roomService = roomService;
+    @Override
+    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+        String roomId = (String) session.getAttributes().get("roomId");
+        Long userId = (Long) session.getAttributes().get("userId");
+        boolean longConnection = Boolean.TRUE.equals(session.getAttributes().get("longConnection"));
+        WebSocketSession activeSession = sessionRegistry.register(roomId, userId, longConnection, session);
+
+        Map<String, Object> connection = new HashMap<>();
+        connection.put("type", "connection");
+        connection.put("roomId", roomId);
+        connection.put("timestamp", new Date());
+        activeSession.sendMessage(new TextMessage(JSON.toJSONString(connection)));
     }
 
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, TextWebSocketFrame frame) {
-        String text = frame.text();
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+        String text = message.getPayload();
         JSONObject json = JSON.parseObject(text);
         String type = json.getString("type");
-        String roomId = ctx.channel().attr(NettySessionRegistry.ATTR_ROOM).get();
-        Long userId = ctx.channel().attr(NettySessionRegistry.ATTR_USER_ID).get();
+        String roomId = (String) session.getAttributes().get("roomId");
+        Long userId = (Long) session.getAttributes().get("userId");
 
         if ("ping".equalsIgnoreCase(type)) {
             Map<String, Object> pong = new HashMap<>();
             pong.put("type", "pong");
             pong.put("timestamp", System.currentTimeMillis());
-            ctx.writeAndFlush(new TextWebSocketFrame(JSON.toJSONString(pong)));
+            session.sendMessage(new TextMessage(JSON.toJSONString(pong)));
             return;
         }
 
@@ -74,11 +82,24 @@ public class NettyTextFrameHandler extends SimpleChannelInboundHandler<TextWebSo
             return;
         }
 
-        // 未识别类型，原样广播到房间，保证与旧前端兼容
         Long resolvedRoomId = resolveRoomId(json, roomId);
         if (resolvedRoomId != null) {
-            String resolvedRoomIdText = String.valueOf(resolvedRoomId);
-            sessionRegistry.broadcast(resolvedRoomIdText, text);
+            sessionRegistry.broadcast(String.valueOf(resolvedRoomId), text);
+        }
+    }
+
+    @Override
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        sessionRegistry.remove(session);
+    }
+
+    @Override
+    public void handleTransportError(WebSocketSession session, Throwable exception) {
+        log.error("WebSocket transport error", exception);
+        sessionRegistry.remove(session);
+        try {
+            session.close();
+        } catch (Exception ignored) {
         }
     }
 
@@ -90,15 +111,13 @@ public class NettyTextFrameHandler extends SimpleChannelInboundHandler<TextWebSo
         chatMessage.setRoomId(safeLong(roomId));
         chatMessage.setSenderId(json.getLong("senderId") != null ? json.getLong("senderId") : userId);
         chatMessage.setSenderType(json.getInteger("senderType") != null ? json.getInteger("senderType") : json.getInteger("sender_type"));
-        chatMessage.setMessageType(json.getInteger("messageType") != null ? json.getInteger("messageType") : 1);
+        chatMessage.setMessageType(json.getInteger("messageType") != null ? json.getInteger("messageType") : json.getInteger("message_type"));
+        if (chatMessage.getMessageType() == null) {
+            chatMessage.setMessageType(1);
+        }
         chatMessage.setContent(json.getString("content"));
         chatMessage.setCreateTime(new Date());
-
-        try {
-            chatMessageService.save(chatMessage);
-        } catch (Exception e) {
-            log.error("保存聊天消息失败", e);
-        }
+        chatMessageService.save(chatMessage);
 
         Map<String, Object> payload = new HashMap<>();
         payload.put("type", "chat");
@@ -108,7 +127,6 @@ public class NettyTextFrameHandler extends SimpleChannelInboundHandler<TextWebSo
         payload.put("messageType", chatMessage.getMessageType());
         payload.put("content", chatMessage.getContent());
         payload.put("createTime", chatMessage.getCreateTime());
-
         sessionRegistry.broadcast(roomId, JSON.toJSONString(payload));
     }
 
@@ -127,10 +145,9 @@ public class NettyTextFrameHandler extends SimpleChannelInboundHandler<TextWebSo
                 }
             }
         }
-        if (registrationId == null) {
-            return;
+        if (registrationId != null) {
+            ChatController.respondToConsultationInternal(registrationId, response);
         }
-        ChatController.respondToConsultationInternal(registrationId, response);
     }
 
     private void handleRoomStatusUpdate(JSONObject json, String fallbackRoomId) {
@@ -139,35 +156,25 @@ public class NettyTextFrameHandler extends SimpleChannelInboundHandler<TextWebSo
         if (status == null || roomId == null) {
             return;
         }
-
-        try {
-            Room room = roomService.getById(roomId);
-            if (room != null) {
-                room.setRoomStatus(status);
-                room.setUpdateTime(new Date());
-                roomService.updateById(room);
-            }
-        } catch (Exception e) {
-            log.error("更新房间状态失败, roomId={}, status={}", roomId, status, e);
+        Room room = roomService.getById(roomId);
+        if (room != null) {
+            room.setRoomStatus(status);
+            room.setUpdateTime(new Date());
+            roomService.updateById(room);
         }
-
         Map<String, Object> statusMessage = new HashMap<>();
         statusMessage.put("type", "room_status_update");
         statusMessage.put("room_status", status);
         statusMessage.put("roomId", roomId);
         statusMessage.put("timestamp", new Date());
-
-        String roomIdText = String.valueOf(roomId);
-        sessionRegistry.broadcast(roomIdText, JSON.toJSONString(statusMessage));
+        sessionRegistry.broadcast(String.valueOf(roomId), JSON.toJSONString(statusMessage));
     }
 
     private void broadcastStatusMessage(JSONObject json, String fallbackRoomId) {
         Long roomId = resolveRoomId(json, fallbackRoomId);
-        if (roomId == null) {
-            return;
+        if (roomId != null) {
+            sessionRegistry.broadcast(String.valueOf(roomId), JSON.toJSONString(json));
         }
-        String roomIdText = String.valueOf(roomId);
-        sessionRegistry.broadcast(roomIdText, JSON.toJSONString(json));
     }
 
     private void handlePatientReady(String fallbackRoomId) {
@@ -179,9 +186,7 @@ public class NettyTextFrameHandler extends SimpleChannelInboundHandler<TextWebSo
         notification.put("type", "patient_ready");
         notification.put("roomId", roomId);
         notification.put("timestamp", new Date());
-
-        String roomIdText = String.valueOf(roomId);
-        sessionRegistry.broadcast(roomIdText, JSON.toJSONString(notification));
+        sessionRegistry.broadcast(String.valueOf(roomId), JSON.toJSONString(notification));
     }
 
     private Long resolveRoomId(JSONObject json, String fallbackRoomId) {
@@ -190,11 +195,8 @@ public class NettyTextFrameHandler extends SimpleChannelInboundHandler<TextWebSo
             return roomId;
         }
         JSONObject data = json.getJSONObject("data");
-        if (data != null) {
-            roomId = data.getLong("roomId");
-            if (roomId != null) {
-                return roomId;
-            }
+        if (data != null && data.getLong("roomId") != null) {
+            return data.getLong("roomId");
         }
         return safeLong(fallbackRoomId);
     }
@@ -212,75 +214,39 @@ public class NettyTextFrameHandler extends SimpleChannelInboundHandler<TextWebSo
         if (data == null) {
             return null;
         }
-        registrationId = data.getLong("registrationId");
-        if (registrationId != null) {
-            return registrationId;
+        if (data.getLong("registrationId") != null) {
+            return data.getLong("registrationId");
         }
         return data.getLong("consultationId");
     }
 
     private String resolveResponse(JSONObject json) {
-        String response = json.getString("response");
-        if (response != null) {
-            return response;
+        if (json.getString("response") != null) {
+            return json.getString("response");
         }
         JSONObject data = json.getJSONObject("data");
-        if (data == null) {
-            return null;
-        }
-        return data.getString("response");
+        return data == null ? null : data.getString("response");
     }
 
     private Integer resolveRoomStatus(JSONObject json) {
-        Integer status = json.getInteger("room_status");
-        if (status != null) {
-            return status;
+        if (json.getInteger("room_status") != null) {
+            return json.getInteger("room_status");
         }
-        status = json.getInteger("roomStatus");
-        if (status != null) {
-            return status;
+        if (json.getInteger("roomStatus") != null) {
+            return json.getInteger("roomStatus");
         }
         JSONObject data = json.getJSONObject("data");
         if (data == null) {
             return null;
         }
-        status = data.getInteger("room_status");
-        if (status != null) {
-            return status;
-        }
-        return data.getInteger("roomStatus");
+        return data.getInteger("room_status") != null ? data.getInteger("room_status") : data.getInteger("roomStatus");
     }
 
     private Long safeLong(String value) {
-        if (value == null) {
-            return null;
-        }
         try {
-            return Long.valueOf(value);
-        } catch (NumberFormatException e) {
+            return value == null ? null : Long.valueOf(value);
+        } catch (NumberFormatException ex) {
             return null;
         }
-    }
-
-    @Override
-    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-        if (evt instanceof IdleStateEvent) {
-            log.info("连接空闲，关闭 channel {}", ctx.channel().id());
-            ctx.close();
-            return;
-        }
-        super.userEventTriggered(ctx, evt);
-    }
-
-    @Override
-    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        sessionRegistry.remove(ctx.channel());
-        super.channelInactive(ctx);
-    }
-
-    @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        log.error("WebSocket 处理异常", cause);
-        ctx.close();
     }
 }

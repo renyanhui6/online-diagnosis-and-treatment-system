@@ -34,6 +34,9 @@ app:
     dev-user-id: 3
     dev-username: user1
     dev-token-enabled: true
+  websocket:
+    path: /ws/chat
+    patient-response-timeout-minutes: 3
   redis:
     listener-enabled: false
     fallback-enabled: true
@@ -50,6 +53,19 @@ ai:
     api-key: ${DEEPSEEK_API_KEY:}
     model: ${DEEPSEEK_MODEL:deepseek-chat}
     timeout-seconds: ${DEEPSEEK_TIMEOUT_SECONDS:20}
+  search:
+    enabled: ${AI_SEARCH_ENABLED:false}
+    provider: ${AI_SEARCH_PROVIDER:tavily}
+    endpoint: ${AI_SEARCH_ENDPOINT:https://api.tavily.com/search}
+    api-key: ${AI_SEARCH_API_KEY:}
+    max-results: ${AI_SEARCH_MAX_RESULTS:5}
+    timeout-seconds: ${AI_SEARCH_TIMEOUT_SECONDS:15}
+
+payment:
+  mock:
+    return-url: ${PAYMENT_RETURN_URL:http://127.0.0.1:5173/payment/result}
+    payment-expire-minutes: ${PAYMENT_EXPIRE_MINUTES:15}
+    expire-scan-interval-ms: ${PAYMENT_EXPIRE_SCAN_INTERVAL_MS:60000}
 
 upload:
   endpoint: ${MINIO_ENDPOINT:http://localhost:9000}

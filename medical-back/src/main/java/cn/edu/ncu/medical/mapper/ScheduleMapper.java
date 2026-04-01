@@ -21,7 +21,8 @@ public interface ScheduleMapper extends BaseMapper<Schedule> {
 
 	int takeAppointmentSlot(@Param("scheduleId") Long scheduleId);
 
-}
+	int releaseAppointmentSlot(@Param("scheduleId") Long scheduleId);
 
+}
 
 

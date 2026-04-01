@@ -1,14 +1,21 @@
 <template>
   <div class="dashboard-container">
-    <div class="welcome-section">
+    <div class="hero-grid">
       <div class="welcome-card">
         <div class="welcome-info">
           <img :src="avatarUrl" alt="Avatar" class="avatar" />
           <div class="welcome-text">
+            <div class="hero-tag">管理驾驶舱</div>
             <h2>{{ greeting }}，{{ displayName }}</h2>
-            <p>今天是 {{ currentDate }}</p>
+            <p>今天是 {{ currentDate }}，重点关注人员、药品和排班模板的整体运行情况。</p>
           </div>
         </div>
+      </div>
+
+      <div class="hero-side-card">
+        <div class="hero-side-label">当前视角</div>
+        <div class="hero-side-value">管理员总览</div>
+        <div class="hero-side-hint">以资源治理和基础运营为主，不承载患者购药流程。</div>
       </div>
     </div>
 
@@ -148,25 +155,39 @@ onMounted(async () => {
   padding: 0;
 }
 
-.welcome-section {
-  margin-bottom: 20px;
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(260px, 0.9fr);
+  gap: 18px;
+  margin-bottom: 22px;
 }
 
 .welcome-card {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.95), rgba(29, 78, 216, 0.88));
-  border-radius: var(--app-radius);
-  padding: 20px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.95), rgba(29, 78, 216, 0.84));
+  border-radius: 24px;
+  padding: 26px;
   color: #fff;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  box-shadow: var(--app-shadow);
+  box-shadow: var(--app-shadow-lg);
   border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .welcome-info {
   display: flex;
   align-items: center;
+}
+
+.hero-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .avatar {
@@ -185,15 +206,43 @@ onMounted(async () => {
 }
 
 .welcome-text h2 {
-  margin: 0 0 8px 0;
-  font-size: 24px;
-  font-weight: 500;
+  margin: 12px 0 8px 0;
+  font-size: 28px;
+  font-weight: 700;
 }
 
 .welcome-text p {
   margin: 0;
   font-size: 14px;
-  opacity: 0.9;
+  line-height: 1.7;
+  opacity: 0.92;
+}
+
+.hero-side-card {
+  border-radius: 24px;
+  padding: 24px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.72));
+  border: 1px solid var(--app-border);
+  box-shadow: var(--app-shadow-sm);
+}
+
+.hero-side-label {
+  font-size: 13px;
+  color: var(--app-text-muted);
+}
+
+.hero-side-value {
+  margin-top: 10px;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--app-text);
+}
+
+.hero-side-hint {
+  margin-top: 12px;
+  color: var(--app-text-muted);
+  line-height: 1.7;
+  font-size: 14px;
 }
 
 .data-overview {
@@ -201,12 +250,13 @@ onMounted(async () => {
 }
 
 .data-card {
-  height: 120px;
+  height: 132px;
   display: flex;
   align-items: center;
-  padding: 20px;
+  padding: 22px;
   margin-bottom: 20px;
   transition: all 0.3s;
+  border-radius: 22px;
 }
 
 .data-card:hover {
@@ -257,6 +307,12 @@ onMounted(async () => {
   font-weight: 600;
   color: var(--app-text);
   margin-bottom: 8px;
+}
+
+@media (max-width: 1024px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {

@@ -8,6 +8,7 @@ import cn.edu.ncu.medical.entity.Schedule;
 import cn.edu.ncu.medical.mapper.RegistrationPersonLockMapper;
 import cn.edu.ncu.medical.mapper.RegistrationMapper;
 import cn.edu.ncu.medical.mapper.ScheduleMapper;
+import cn.edu.ncu.medical.payment.RegistrationPaymentService;
 import cn.edu.ncu.medical.result.ResultCodeEnum;
 import cn.edu.ncu.medical.service.PatientAttendantService;
 import cn.edu.ncu.medical.utils.PatientIdentityUtil;
@@ -27,16 +28,19 @@ public class AppointmentReservationPersistenceService {
     private final RegistrationPersonLockMapper registrationPersonLockMapper;
     private final ScheduleMapper scheduleMapper;
     private final PatientAttendantService patientAttendantService;
+    private final RegistrationPaymentService registrationPaymentService;
     private final Clock clock = Clock.systemDefaultZone();
 
     public AppointmentReservationPersistenceService(RegistrationMapper registrationMapper,
                                                    RegistrationPersonLockMapper registrationPersonLockMapper,
                                                    ScheduleMapper scheduleMapper,
-                                                   PatientAttendantService patientAttendantService) {
+                                                   PatientAttendantService patientAttendantService,
+                                                   RegistrationPaymentService registrationPaymentService) {
         this.registrationMapper = registrationMapper;
         this.registrationPersonLockMapper = registrationPersonLockMapper;
         this.scheduleMapper = scheduleMapper;
         this.patientAttendantService = patientAttendantService;
+        this.registrationPaymentService = registrationPaymentService;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -85,12 +89,13 @@ public class AppointmentReservationPersistenceService {
             registration.setDoctorId(schedule.getDoctorId());
             registration.setPatientId(record.getPatientId());
             registration.setScheduleId(scheduleId);
-            registration.setRegistrationStatus(RegistrationStatus.PAID.getCode());
+            registration.setRegistrationStatus(RegistrationStatus.PENDING_PAYMENT.getCode());
             registration.setPersonKey(record.getPersonKey());
             registration.setRequestToken(token);
             registrationMapper.insert(registration);
             lock.setRegistrationId(registration.getId());
             registrationPersonLockMapper.updateById(lock);
+            registrationPaymentService.createPendingOrder(registration, record.getUserId(), schedule);
             return PersistResult.success(registration.getId());
         } catch (DuplicateKeyException ex) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
@@ -122,6 +127,7 @@ public class AppointmentReservationPersistenceService {
         LambdaQueryWrapper<Registration> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Registration::getRequestToken, token)
                 .eq(Registration::getIsDeleted, 0)
+                .ne(Registration::getRegistrationStatus, RegistrationStatus.INVALID.getCode())
                 .last("limit 1");
         return registrationMapper.selectOne(wrapper);
     }
@@ -131,6 +137,7 @@ public class AppointmentReservationPersistenceService {
         wrapper.eq(Registration::getScheduleId, scheduleId)
                 .eq(Registration::getPersonKey, personKey)
                 .eq(Registration::getIsDeleted, 0)
+                .ne(Registration::getRegistrationStatus, RegistrationStatus.INVALID.getCode())
                 .last("limit 1");
         return registrationMapper.selectOne(wrapper);
     }
