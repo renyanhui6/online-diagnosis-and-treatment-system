@@ -733,3 +733,481 @@
 - 处方新增：`POST /treat/front/doctor/prescription/addPrescription`
 - 患者回看：`POST /treat/front/patient/medicalRecord/getMedicalRecordByUserId`
 - 处方明细：`GET /treat/front/patient/medicalRecord/getPrescriptionInfoByMedicalRecordId`
+
+---
+
+## 2026-04-01 / 阶段 B / 批次 1（B1 AI 单元测试）首次执行
+
+### 环境信息
+- 后端：未拉起（本批次为后端单元测试）
+- MySQL：未验证（本批次主要是纯逻辑单元测试）
+- Redis：未验证
+- RabbitMQ：未验证
+- MinIO：未验证
+- Maven：可执行，但外网仓库访问受限
+
+### 测试数据
+- 测试类：
+  - `cn.edu.ncu.medical.ai.AiRequestSanitizerTest`
+  - `cn.edu.ncu.medical.ai.AiRateLimiterTest`
+  - `cn.edu.ncu.medical.ai.AiRequestContextTest`
+
+### 执行步骤
+1. 先尝试使用 Maven Wrapper 执行 AI 单元测试子集。
+2. 由于 wrapper 下载失败，切换到系统 `mvn` 再次执行。
+3. 记录失败原因与阻塞点，纳入下一轮执行前置条件。
+
+### 预期结果
+- 完成批次 1 的 AI 单元测试首轮执行并获得通过/失败结果。
+
+### 实际结果
+- `./mvnw` 触发下载 Maven 发行包时失败（无法拉取 `apache-maven-3.9.11-bin.zip`）。
+- 使用系统 `mvn` 后，构建在解析父 POM 时被远程仓库 `403 Forbidden` 阻断，未进入测试执行阶段。
+
+### 结论
+- 是否通过：未通过（环境阻塞）
+- 问题编号：ENV-MVN-001
+- 是否需要回归：是（网络/仓库可访问后立即重跑批次 1）
+
+### 证据
+- 命令：`cd medical-back && ./mvnw -Dtest=cn.edu.ncu.medical.ai.AiRequestSanitizerTest,cn.edu.ncu.medical.ai.AiRateLimiterTest,cn.edu.ncu.medical.ai.AiRequestContextTest test`
+- 命令：`cd medical-back && mvn -Dtest=cn.edu.ncu.medical.ai.AiRequestSanitizerTest,cn.edu.ncu.medical.ai.AiRateLimiterTest,cn.edu.ncu.medical.ai.AiRequestContextTest test`
+- 关键报错：`Could not transfer artifact ... status code: 403, reason phrase: Forbidden (403)`
+
+---
+
+## 2026-04-01 / 阶段 B / 批次 1（B1 AI 单元测试）阻塞定位补充
+
+### 环境信息
+- Maven：3.9.10（系统安装）
+- 网络：可访问命令行，但 Maven 远程仓库请求被网关拦截
+
+### 执行步骤
+1. 使用 `curl -I` 直接验证 Maven 中央仓库 POM 地址可达性。
+2. 尝试 Aliyun 镜像地址做对照验证。
+3. 检查本机 `~/.m2/repository` 是否已有可复用离线依赖缓存。
+
+### 预期结果
+- 明确当前阻塞发生在“项目配置”还是“网络出口策略”。
+
+### 实际结果
+- `repo.maven.apache.org` 返回 `HTTP/1.1 403 Forbidden`。
+- `maven.aliyun.com` 同样返回 `HTTP/1.1 403 Forbidden`。
+- 本机不存在 `~/.m2/repository` 缓存，无法离线构建。
+
+### 结论
+- 是否通过：未通过（环境阻塞持续）
+- 问题编号：ENV-MVN-001（延续）
+- 是否需要回归：是
+
+### 证据
+- `curl -I -s https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-starter-parent/3.4.7/spring-boot-starter-parent-3.4.7.pom | head`
+- `curl -I -s https://maven.aliyun.com/repository/public/org/springframework/boot/spring-boot-starter-parent/3.4.7/spring-boot-starter-parent-3.4.7.pom | head`
+- `ls -la ~/.m2/repository/org/springframework/boot/spring-boot-starter-parent/3.4.7`
+
+---
+
+## 2026-04-01 / 6小时连续执行 / N1（环境与依赖可用性复核）
+
+### 计划目标
+- 复核后续连续执行所需的基础运行条件（端口、容器、后端状态）。
+
+### 实际执行命令
+1. `ss -ltnp | rg ':(3306|6379|5672|15672|9000|9002|8080)\b' || true`
+2. `docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'`
+3. `curl -s -m 3 http://127.0.0.1:8080/treat/ai/status || true`
+
+### 实际结果
+- `ss` 命令不可用（`command not found`）。
+- `docker` 命令不可用（`command not found`）。
+- `curl` 在 3 秒超时窗口内未返回可用结果。
+
+### 达成情况
+- 是否达成：部分达成（明确了环境工具缺失，但未拿到完整依赖状态）。
+
+### 反思
+- 本节点主要阻塞：执行环境缺少网络/容器观测工具，无法直接验证服务存活。
+- 对后续节点影响：接口级与集成级测试需改为“可执行命令 + 错误证据”模式推进，先完成离线可执行内容。
+- 下一节点调整动作：先进行功能拆解与优先级细化，不等待环境恢复。
+
+---
+
+## 2026-04-01 / 6小时连续执行 / N2（功能点拆解与优先级确认）
+
+### 计划目标
+- 将测试目标细化到模块规模，形成可连续推进的优先级队列。
+
+### 实际执行命令
+1. `rg --files medical-back/src/main/java | rg '/controller/' | wc -l`
+2. `rg --files medical-back/src/main/java | rg '/service/' | wc -l`
+3. `rg --files medical-back/src/main/java | rg '/service/impl/' | wc -l`
+4. `rg --files medical-back/src/test/java | wc -l`
+5. `rg --files medical-patient-front/src/views | wc -l`
+6. `rg --files medical-front-doctor/back-vue-master/src/views | wc -l`
+7. `rg --files medical-back/src/main/java/cn/edu/ncu/medical/controller | sed -n '1,200p'`
+
+### 实际结果
+- 后端 Controller：22 个
+- Service 接口：30 个
+- ServiceImpl：15 个
+- 后端测试类：14 个
+- 患者端视图：14 个
+- 医生/管理端视图：15 个
+- 已整理患者/医生/管理/通用四类控制器清单，确认后续接口测试可按角色分批推进。
+
+### 达成情况
+- 是否达成：达成
+
+### 反思
+- 本节点主要阻塞：无功能阻塞，主要是后续执行环境仍未恢复。
+- 对后续节点影响：可先把 B1/B2 用例细化到可直接转 JUnit 的粒度，避免空等。
+- 下一节点调整动作：进入 N3，补齐每个用例的输入样例与断言口径。
+
+---
+
+## 2026-04-01 / 6小时连续执行 / N3（B1/B2 参数细化）
+
+### 计划目标
+- 把 B1/B2 的用例细化成可直接转 JUnit 的“输入+断言”结构。
+
+### 实际执行操作
+1. 在 `continuous-6h-test-plan.md` 新增 `N3 产出（B1/B2 参数与断言口径）`。
+2. 给 `AiRequestSanitizer`、`AiRateLimiter`、`AiRequestContext`、`AppointmentReservationState`、`AppointmentReservationKeys`、`PatientIdentityUtil` 分别补充输入样例与断言口径。
+
+### 实际结果
+- 已形成可直接用于下一步写测试代码的断言模板，避免后续执行出现“只有方向没有可测断言”的问题。
+
+### 达成情况
+- 是否达成：达成
+
+### 反思
+- 本节点主要阻塞：仍未恢复 Maven 依赖下载，无法立即把用例转成可运行测试。
+- 对后续节点影响：N4/N5 执行时将继续先尝试构建；若失败则记录阻塞并切换接口链路验证准备。
+- 下一节点调整动作：进入 N4，重试 B1 执行并抓取阻塞证据。
+
+---
+
+## 2026-04-01 / 6小时连续执行 / N4（执行 B1 AI 单元测试）
+
+### 计划目标
+- 实际执行 `AiRequestSanitizerTest`，至少拿到 1 个可运行测试结果。
+
+### 实际执行命令
+1. `cd medical-back && ./mvnw -Dtest=cn.edu.ncu.medical.ai.AiRequestSanitizerTest test`
+2. `cd medical-back && sh ./mvnw -Dtest=cn.edu.ncu.medical.ai.AiRequestSanitizerTest test`
+3. `cd medical-back && mvn -Dtest=cn.edu.ncu.medical.ai.AiRequestSanitizerTest test`
+
+### 实际结果
+- `./mvnw`：权限不足（`Permission denied`）。
+- `sh ./mvnw`：wrapper 下载 Maven 发行包失败。
+- `mvn`：解析 Spring Boot 父 POM 时中央仓库返回 `403 Forbidden`。
+
+### 达成情况
+- 是否达成：未达成（环境阻塞）
+
+### 反思
+- 本节点主要阻塞：运行链路被“执行权限 + 远程仓库403”双重阻塞。
+- 对后续节点影响：N5（B2）在当前环境预计同样失败，应避免重复无效尝试，转向“测试资产先行（用例/脚本/证据模板）+ 接口链路前置准备”。
+- 下一节点调整动作：N5 只做一次最小化重试留证据，然后立即切 N6 数据准备。
+
+---
+
+## 2026-04-01 / 6小时连续执行 / N5（执行 B2 状态机/Key 单元测试）
+
+### 计划目标
+- 最小化重试 B2，确认是否存在与 B1 不同的执行结果。
+
+### 实际执行命令
+- `cd medical-back && mvn -Dtest=cn.edu.ncu.medical.registration.AppointmentReservationStateTest,cn.edu.ncu.medical.registration.AppointmentReservationKeysTest test`
+
+### 实际结果
+- 与 B1 一致，构建阶段即因父 POM 拉取失败被阻断：`403 Forbidden`。
+
+### 达成情况
+- 是否达成：未达成（环境阻塞）
+
+### 反思
+- 本节点主要阻塞：Maven 依赖下载在项目启动前即失败，和具体测试类无关。
+- 对后续节点影响：继续跑本地单测没有增量信息；应切换到“真实数据脚本与接口样本准备”以保持推进。
+- 下一节点调整动作：进入 N6，固定测试数据来源并提取可直接使用的样本账号。
+
+---
+
+## 2026-04-01 / 6小时连续执行 / N6（C阶段接口测试数据准备）
+
+### 计划目标
+- 固定 C 阶段接口测试所需的数据脚本与账号样本，降低后续联调随机性。
+
+### 实际执行命令
+1. `wc -l scripts/OnlineTreat_medical_only.sql`
+2. `wc -l scripts/20260312_registration_person_key.sql`
+3. `wc -l scripts/20260321_cleanup_demo_data.sql`
+4. `rg "INSERT INTO" scripts/OnlineTreat_medical_only.sql | head -n 40`
+
+### 实际结果
+- 数据脚本规模已确认：
+  - `OnlineTreat_medical_only.sql`：1051 行
+  - `20260312_registration_person_key.sql`：25 行
+  - `20260321_cleanup_demo_data.sql`：73 行
+- 已提取到可直接用于测试的种子样本：
+  - 患者：`system_user.id=3 (user1)`
+  - 医生：`system_user.id=5 (cardio_dir1)`
+  - 已存在科室/子科室初始化数据（内科、外科、妇产科等）
+
+### 达成情况
+- 是否达成：达成
+
+### 反思
+- 本节点主要阻塞：无法直接连接数据库核对“当前运行库”与 SQL 样本的一致性。
+- 对后续节点影响：N7/N8 若无后端服务，将先输出标准化接口用例和请求脚本模板。
+- 下一节点调整动作：进入 N7，先构建 C1/C2 的 API 执行脚本与断言清单。
+
+---
+
+## 2026-04-01 / 6小时连续执行 / N7（C1/C2 登录+就诊人）
+
+### 计划目标
+- 执行 C1/C2，至少输出可复用命令与断言清单，环境可用时可直接运行。
+
+### 实际执行操作
+1. 新建 `scripts/testing/c1-c2-api-checklist.md`。
+2. 固化 C1 登录鉴权与 C2 就诊人管理的 curl 命令、token 传递方式和断言口径。
+3. 明确成功分支与异常分支（重复身份证）两类验证路径。
+
+### 实际结果
+- C1/C2 已形成“可直接复制执行”的命令级脚本文档。
+- 在后端可访问时可立即执行，不需要再次设计接口用例。
+
+### 达成情况
+- 是否达成：达成（设计与脚本准备完成）
+
+### 反思
+- 本节点主要阻塞：当前无法确认本机 8080 服务状态，暂未产出实时响应证据。
+- 对后续节点影响：N8/N9/N10 将继续先固化请求模板，同时保留“环境恢复后立即回放”的执行顺序。
+- 下一节点调整动作：进入 N8，生成 C3/C4（排班+挂号）脚本模板与断言。
+
+---
+
+## 2026-04-01 / 6小时连续执行 / N8（C3/C4 排班+挂号）
+
+### 计划目标
+- 固化排班查询与挂号创建/状态轮询的可执行脚本，确保环境恢复后可直接跑核心链路。
+
+### 实际执行操作
+1. 新建 `scripts/testing/c3-c4-api-checklist.md`。
+2. 定义 C3（科室/子科室/排班）查询命令。
+3. 定义 C4（创建挂号、状态轮询、重复拦截、库存不足）命令与断言。
+
+### 实际结果
+- C3/C4 用例脚本已就绪，包含成功与异常分支。
+- 已固定最关键的参数传递方式（`PATIENT_TOKEN`、`APPOINT_TOKEN`）。
+
+### 达成情况
+- 是否达成：达成（脚本就绪）
+
+### 反思
+- 本节点主要阻塞：未获得在线服务可用证据，暂时无法产出实时响应结果。
+- 对后续节点影响：N9/N10 将继续构建问诊/病历/处方脚本，形成“环境恢复即可回放”的批量执行包。
+- 下一节点调整动作：进入 N9，输出 C5/C6 脚本。
+
+---
+
+## 2026-04-01 / 6小时连续执行 / N9（C5/C6 问诊+聊天）
+
+### 计划目标
+- 输出问诊房间与聊天消息链路的执行脚本，并尝试在线验证。
+
+### 实际执行操作
+1. 新建 `scripts/testing/c5-c6-api-checklist.md`，覆盖发起问诊、接诊、拒绝分支、消息发送、房间状态查询。
+2. 尝试调用房间状态接口：`POST /treat/chat/room/189/status`（本地 8080）。
+
+### 实际结果
+- 脚本模板完成。
+- 在线接口在 5 秒窗口内无返回内容，未获得有效回包证据。
+
+### 达成情况
+- 是否达成：部分达成（脚本达成，在线验证阻塞）。
+
+### 反思
+- 本节点主要阻塞：后端服务可用性不可确认，导致无法验证问诊状态与消息落库。
+- 对后续节点影响：N10/N11 继续先沉淀可执行脚本与断言，等待服务恢复后批量回放。
+- 下一节点调整动作：进入 N10，输出病历/处方脚本并进行最小化在线探测。
+
+---
+
+## 2026-04-01 / 6小时连续执行 / N10（C7/C8 病历+处方）
+
+### 计划目标
+- 输出病历与处方链路执行脚本，并进行接口连通性探测。
+
+### 实际执行操作
+1. 新建 `scripts/testing/c7-c8-api-checklist.md`，覆盖医生新增病历、医患两侧病历查询、医生开处方、患者查处方。
+2. 尝试调用病历列表接口：`POST /treat/front/doctor/medicalRecord/getMedicalRecordList?pageNum=1&pageSize=10`。
+
+### 实际结果
+- 脚本模板完成。
+- 在线探测无返回内容，未形成实时接口证据。
+
+### 达成情况
+- 是否达成：部分达成（脚本达成，在线验证阻塞）。
+
+### 反思
+- 本节点主要阻塞：服务侧不可观测状态持续。
+- 对后续节点影响：N11 将以“AI+管理+一致性校验模板”先行，优先保证恢复后可快速执行。
+- 下一节点调整动作：进入 N11。
+
+---
+
+## 2026-04-01 / 6小时连续执行 / N11（C9/C10 + D）
+
+### 计划目标
+- 输出 AI、管理端、状态一致性校验模板，并进行接口探测。
+
+### 实际执行操作
+1. 新建 `scripts/testing/c9-c10-d-e-checklist.md`，覆盖：
+   - `POST /treat/ai/doctor/assist`
+   - `POST /treat/ai/patient/triage`
+   - `POST /treat/admin/drug/getDrugList`
+   - `POST /treat/admin/doctor/findAll`
+   - D 阶段一致性检查项。
+2. 尝试调用 AI 分诊与管理端药品列表接口进行连通性探测。
+
+### 实际结果
+- 脚本模板完成。
+- 在线接口无返回内容，实时校验未完成。
+
+### 达成情况
+- 是否达成：部分达成（模板达成，实时验证阻塞）。
+
+### 反思
+- 本节点主要阻塞：在线服务不可用导致 C9/C10 和 D 只能准备不能验收。
+- 对后续节点影响：N12 将完成回归执行顺序与恢复后的一键回放步骤。
+- 下一节点调整动作：进入 N12。
+
+---
+
+## 2026-04-01 / 6小时连续执行 / N12（E 集成回归收口）
+
+### 计划目标
+- 完成本轮 6 小时执行收口，给出恢复后回放顺序。
+
+### 实际执行操作
+1. 汇总 N1~N11 的阻塞与产出。
+2. 固化恢复后推荐回放顺序：`C1/C2 -> C3/C4 -> C5/C6 -> C7/C8 -> C9/C10 -> D -> E`。
+3. 将本轮状态同步到 `continuous-6h-test-plan.md` 的节点清单与结论段。
+
+### 实际结果
+- 本轮已完成完整 12 节点连续执行（含反思）。
+- 受环境限制，实时在线验证未闭环，但测试资产已可复用。
+
+### 达成情况
+- 是否达成：达成（以可执行资产与完整记录为目标）。
+
+### 反思
+- 本节点主要阻塞：外部依赖可用性未恢复。
+- 对后续节点影响：环境恢复后可直接按回放顺序执行，无需再设计。
+- 下一节点调整动作：进入下一轮“环境恢复后的批量回放执行”。
+
+---
+
+## 2026-04-01 / 连续执行续轮 / N13（清单接口路径静态校验与修正）
+
+### 计划目标
+- 在服务不可用条件下，先保证所有 API 清单中的路径与后端真实映射一致，避免恢复后出现“脚本路径错误”。
+
+### 实际执行命令
+1. `python scripts/testing/validate_checklists.py`
+2. `sed -n '1,260p' scripts/testing/checklist-endpoint-validation.md`
+3. `sed -n '1,260p' medical-back/src/main/java/cn/edu/ncu/medical/controller/patient/PatientAttendantController.java`
+4. `sed -n '1,260p' medical-back/src/main/java/cn/edu/ncu/medical/controller/patient/ScheduleController.java`
+5. `sed -n '1,360p' medical-back/src/main/java/cn/edu/ncu/medical/websocket/ChatController.java | rg "@RequestMapping|@GetMapping|@PostMapping" -n`
+
+### 实际结果
+- 新增并执行了 `scripts/testing/validate_checklists.py`，自动对比 checklist URL 与后端路由。
+- 根据校验结果修正了以下脚本路径：
+  - 就诊人接口从 `/front/patient/patientAttendant/*` 更正为 `/front/patient/attendant/*`
+  - 排班接口收敛为 `/front/patient/schedule/findList`
+  - 管理端接口更正为 `/back/admin/drug/getDrugList`、`/back/admin/doctor/findAll`
+  - 房间消息查询更正为 `/chat/messages/{roomId}`
+- 修正后再次校验：清单中检测到的接口路径已全部匹配后端映射（✅）。
+
+### 达成情况
+- 是否达成：达成
+
+### 反思
+- 本节点主要阻塞：仍缺实时服务回包，无法验证业务语义，只能先确保路径层正确。
+- 对后续节点影响：环境恢复后可直接回放，不会再浪费时间在 404/路由不匹配问题上。
+- 下一节点调整动作：进入续轮 N14，补充请求体字段与 DTO 的静态一致性检查。
+
+---
+
+## 2026-04-01 / 连续执行续轮 / N14（请求体与 DTO 字段一致性校验）
+
+### 计划目标
+- 校验 checklist 中 JSON 请求体字段与后端 DTO 定义一致，减少恢复后 400 参数错误。
+
+### 实际执行命令
+1. `sed -n '1,220p' medical-back/src/main/java/cn/edu/ncu/medical/entity/dto/IdCard.java`
+2. `sed -n '1,220p' medical-back/src/main/java/cn/edu/ncu/medical/entity/dto/AppointmentCreateRequest.java`
+3. `sed -n '1,220p' medical-back/src/main/java/cn/edu/ncu/medical/entity/dto/DoctorAiRequest.java`
+4. `sed -n '1,220p' medical-back/src/main/java/cn/edu/ncu/medical/entity/dto/TriageRequest.java`
+
+### 实际结果
+- 已按 DTO 修正脚本请求体字段：
+  - `IdCard`：改为 `realName` + `idCard`
+  - `DoctorAiRequest`：改为 `summary`、`conversationSnippet`、`symptoms`
+  - `TriageRequest`：改为 `description`、`age`、`gender`、`symptoms`
+- `AppointmentCreateRequest` 字段保持 `patientId` + `scheduleId`，与现有脚本一致。
+
+### 达成情况
+- 是否达成：达成
+
+### 反思
+- 本节点主要阻塞：无法在线提交验证，但静态字段口径已统一。
+- 对后续节点影响：环境恢复后可直接进行参数级验证，减少请求体不匹配错误。
+- 下一节点调整动作：进入续轮 N15，输出“恢复后一键回放执行顺序脚本”。
+
+---
+
+## 2026-04-01 / 连续执行续轮 / N15（恢复后一键回放脚本）
+
+### 计划目标
+- 将 C1~E 的执行顺序脚本化，恢复环境后可直接按顺序推进。
+
+### 实际执行命令
+1. `bash scripts/testing/run-all-checklists.sh`
+
+### 实际结果
+- 已新增并执行 `scripts/testing/run-all-checklists.sh`。
+- 脚本按顺序输出 C1/C2 -> C3/C4 -> C5/C6 -> C7/C8 -> C9/C10+D/E 的回放步骤。
+
+### 达成情况
+- 是否达成：达成
+
+### 反思
+- 本节点主要阻塞：当前仍是流程脚本级验证，未连接实时服务。
+- 对后续节点影响：一旦服务恢复，可直接照顺序执行并回填日志。
+- 下一节点调整动作：进入续轮 N16，做本轮资产一致性总检查并收口。
+
+---
+
+## 2026-04-01 / 连续执行续轮 / N16（测试资产一致性总检查）
+
+### 计划目标
+- 对本轮新增脚本做一致性总检查，确认“可执行路径、参数字段、回放顺序”三者闭环。
+
+### 实际执行命令
+1. `python scripts/testing/validate_checklists.py`
+2. `tail -n 60 scripts/testing/checklist-endpoint-validation.md`
+
+### 实际结果
+- Endpoint 校验报告显示：五份 checklist 中提取的后端路径均匹配（✅）。
+- 结合 N14 的 DTO 字段校验与 N15 的顺序脚本，已形成可回放的完整测试资产包。
+
+### 达成情况
+- 是否达成：达成
+
+### 反思
+- 本节点主要阻塞：仍缺在线服务回包证据，当前结论属于“资产完备、待环境回放”。
+- 对后续节点影响：后续工作可直接切换到“真实环境回放执行+论文结果沉淀”。
+- 下一节点调整动作：等待环境可用后，按 `run-all-checklists.sh` 实施并回填通过率、缺陷率、回归结果。
