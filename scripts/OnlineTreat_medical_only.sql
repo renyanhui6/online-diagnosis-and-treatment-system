@@ -97,7 +97,7 @@ CREATE TABLE `system_user`  (
   `is_deleted` int NULL DEFAULT 0,
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `username`(`username` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 82 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 83 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of system_user
@@ -173,6 +173,7 @@ INSERT INTO `system_user` VALUES (76, 'doctor1', '8d969eef6ecad3c29a3a629280e686
 INSERT INTO `system_user` VALUES (79, 'doctor2', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 2, '2025-07-30 09:54:35', '23333@qq.com', '2025-07-30 10:01:56', 0, 1, 1);
 INSERT INTO `system_user` VALUES (80, 'user2', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 1, '2025-08-04 18:01:21', '267932764@qq.com', '2025-08-08 13:59:52', 1, 1, 0);
 INSERT INTO `system_user` VALUES (81, 'test01', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 1, '2025-08-08 14:08:17', '1654752365@163.com', NULL, 1, 1, 0);
+INSERT INTO `system_user` VALUES (82, 'local_admin_seed', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 3, '2025-08-08 14:10:17', 'admin@local.test', NULL, 1, 1, 0);
 
 -- ----------------------------
 -- Table structure for doctor_detail

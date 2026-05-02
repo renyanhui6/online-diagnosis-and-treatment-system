@@ -295,14 +295,18 @@ async function handleLocalLogin() {
 
   loading.value = true;
   try {
+    const loginType = loginForm.type === 'admin' ? 3 : 2;
     const response = await api.get('/front/loginAndOut/devToken', {
-      params: { type: 2 }
+      params: { type: loginType }
     });
     if (response.code !== 200 || !response.data) {
       ElMessage.error(response.message || '获取本地登录令牌失败');
       return;
     }
-    await finalizeLoginSession(response.data, loginForm.type, '已使用本地账号登录');
+    const successMessage = loginForm.type === 'admin'
+      ? '已使用本地管理员账号登录'
+      : '已使用本地医生账号登录';
+    await finalizeLoginSession(response.data, loginForm.type, successMessage);
   } catch (error) {
     console.error('本地直连失败:', error);
     ElMessage.error(error.response?.data?.message || error.message || '本地直连失败');

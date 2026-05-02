@@ -18,7 +18,7 @@
           <el-breadcrumb-item>{{ route.meta.title }}</el-breadcrumb-item>
         </el-breadcrumb>
       </div>
-      <div class="header-note">{{ isDoctor ? '当日接诊与病历协同' : '运营、排班与资源治理' }}</div>
+      <div class="header-note">{{ isDoctor ? '当日接诊与病历协同' : '基础维护与资源治理' }}</div>
     </div>
     
     <div class="header-right">
@@ -85,7 +85,7 @@ const userInfo = computed(() => {
   const storedUserInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
   
   return {
-    name: username || storedUserInfo.name || '用户',
+    name: username || storedUserInfo.realName || storedUserInfo.username || storedUserInfo.name || '用户',
     avatar: storedUserInfo.avatar || 'https://randomuser.me/api/portraits/men/32.jpg'
   };
 });

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <rect width="640" height="360" fill="#fff1f5"/>
+  <rect x="80" y="56" width="480" height="248" rx="26" fill="#ffffff" stroke="#e56b8c" stroke-width="8"/>
+  <circle cx="286" cy="156" r="50" fill="#ffd6e1" stroke="#d94b73" stroke-width="8"/>
+  <circle cx="354" cy="190" r="64" fill="#fff7fa" stroke="#d94b73" stroke-width="8"/>
+  <path d="M250 236c38 36 102 38 142 0" fill="none" stroke="#d94b73" stroke-width="12" stroke-linecap="round"/>
+  <text x="320" y="324" text-anchor="middle" font-family="Arial,'Microsoft YaHei',sans-serif" font-size="30" fill="#b73c62">妇产诊疗</text>
+</svg>

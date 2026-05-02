@@ -20,7 +20,16 @@
 
     <div class="triage-workspace">
       <div class="triage-chat-panel">
-        <div class="triage-section-title">对话区</div>
+        <div class="triage-panel-header">
+          <div>
+            <div class="triage-section-title">对话区</div>
+            <div class="triage-session-meta">
+              {{ currentSessionStatus === 'CLOSED' ? '历史会话' : '当前会话' }}
+              <span v-if="triageSessionId">#{{ triageSessionId.slice(-8) }}</span>
+            </div>
+          </div>
+          <el-button plain @click="openTriageHistory">历史分诊</el-button>
+        </div>
         <div class="triage-chat-messages">
           <div
             v-for="(message, index) in triageMessages"
@@ -38,13 +47,19 @@
           type="textarea"
           :rows="4"
           resize="none"
+          :disabled="currentSessionStatus === 'CLOSED'"
           placeholder="请描述你的主要不适，例如：咳嗽三天伴低热、胸闷，夜间加重。"
           @keyup.ctrl.enter="sendTriageMessage"
         />
 
         <div class="triage-chat-actions">
           <el-button @click="resetTriageDialog">重新开始</el-button>
-          <el-button type="primary" :loading="triageLoading" @click="sendTriageMessage">
+          <el-button
+            type="primary"
+            :loading="triageLoading"
+            :disabled="currentSessionStatus === 'CLOSED'"
+            @click="sendTriageMessage"
+          >
             发送症状
           </el-button>
         </div>
@@ -52,6 +67,15 @@
 
       <div class="triage-result-panel">
         <div class="triage-section-title">推荐结果</div>
+        <el-alert
+          v-if="showAiFallbackNotice"
+          class="ai-status-alert"
+          :title="aiFallbackTitle"
+          :description="aiFallbackDescription"
+          type="warning"
+          show-icon
+          :closable="false"
+        />
 
         <div class="triage-result-card">
           <template v-if="triageResult.recommendedSubDepartments.length || triageResult.recommendedDepartments.length">
@@ -100,6 +124,34 @@
     </div>
 
     <el-dialog
+      v-model="historyDialogVisible"
+      title="历史分诊"
+      width="860px"
+    >
+      <el-table :data="triageSessionList" border empty-text="暂无历史分诊会话">
+        <el-table-column label="创建时间" width="180">
+          <template #default="{ row }">{{ formatDateTime(row.createdTime) }}</template>
+        </el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">{{ row.status === 'ACTIVE' ? '进行中' : '已关闭' }}</template>
+        </el-table-column>
+        <el-table-column label="来源" width="150">
+          <template #default="{ row }">{{ sourceLabel(row.source) }}</template>
+        </el-table-column>
+        <el-table-column label="推荐方向" min-width="220">
+          <template #default="{ row }">
+            {{ displayRecommendations(row) || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="120" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" link @click="loadTriageHistory(row)">查看</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
+
+    <el-dialog
       v-model="aiUnavailableDialogVisible"
       title="AI 服务不可用"
       width="720px"
@@ -115,20 +167,31 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { chatTriageAgent } from '../api/ai'
+import {
+  chatTriageAgent,
+  closeTriageSession,
+  getAiStatus,
+  getTriageSessionList,
+  getTriageSessionMessages,
+  startTriageSession
+} from '../api/ai'
 import { getDepartmentList, getSubDepartmentList } from '../api/appointment'
 
 const router = useRouter()
 
 const triageLoading = ref(false)
+const historyDialogVisible = ref(false)
 const aiUnavailableDialogVisible = ref(false)
 const aiUnavailableText = ref('')
 const triageSessionId = ref('')
+const currentSessionStatus = ref('ACTIVE')
 const triageInput = ref('')
 const triageMessages = ref([])
+const triageSessionList = ref([])
+const aiStatus = ref(null)
 const departments = ref([])
 const subDepartmentsCache = ref({})
 
@@ -148,7 +211,43 @@ const triageResult = reactive({
   sourceLabel: '院内知识优先'
 })
 
+const showAiFallbackNotice = computed(() => aiStatus.value?.effectiveMode === 'LOCAL_FALLBACK')
+
+const aiFallbackTitle = computed(() => {
+  if (aiStatus.value?.apiKeyPresent === false) {
+    return '当前使用本地分诊兜底：后端没有读取到 DeepSeek Key'
+  }
+  return '当前使用本地分诊兜底'
+})
+
+const aiFallbackDescription = computed(() => {
+  if (aiStatus.value?.apiKeyPresent === false) {
+    return '请检查 medical-back/src/main/resources/application-local.secret.yml 或 DEEPSEEK_API_KEY 环境变量，配置后需要重启后端。'
+  }
+  return '后端已启用兜底策略，在线模型调用失败时会返回院内规则推荐。可打开 /treat/ai/status 查看详细状态。'
+})
+
 const normalizeName = (value) => (value || '').replace(/\s+/g, '').trim()
+
+const sourceLabel = (source) => {
+  if (source === 'langchain-agent' || source === 'online-agent') return 'DeepSeek 在线 Agent'
+  if (source === 'local-fallback') return '本地分诊兜底'
+  return '院内知识优先'
+}
+
+const formatDateTime = (value) => {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+const displayRecommendations = (session) => {
+  const names = session?.recommendedSubDepartments?.length
+    ? session.recommendedSubDepartments
+    : session?.recommendedDepartments || []
+  return names.join('，')
+}
 
 const setIntroMessage = (content) => {
   triageMessages.value = [{
@@ -158,8 +257,8 @@ const setIntroMessage = (content) => {
 }
 
 const updateSourceLabel = (source) => {
-  if (source === 'online-agent') {
-    triageResult.sourceLabel = '在线 Agent'
+  if (source === 'langchain-agent' || source === 'online-agent') {
+    triageResult.sourceLabel = 'DeepSeek 在线 Agent'
     return
   }
   if (source === 'local-fallback') {
@@ -169,14 +268,94 @@ const updateSourceLabel = (source) => {
   triageResult.sourceLabel = '院内知识优先'
 }
 
-const resetTriageDialog = () => {
+const resetTriageDialogState = () => {
   triageSessionId.value = ''
+  currentSessionStatus.value = 'ACTIVE'
   triageInput.value = ''
   triageResult.recommendedDepartments = []
   triageResult.recommendedSubDepartments = []
   triageResult.rationale = ''
   triageResult.sourceLabel = '院内知识优先'
   setIntroMessage('请先告诉我你的主要不适部位、持续时间和伴随症状。我会结合院内真实科室信息，帮你判断更适合挂哪个科室。')
+}
+
+const createTriageSession = async () => {
+  const res = await startTriageSession()
+  if (res.code === 200 && res.data?.sessionId) {
+    triageSessionId.value = res.data.sessionId
+    currentSessionStatus.value = res.data.status || 'ACTIVE'
+    return true
+  }
+  ElMessage.warning(res.message || '创建 AI 分诊会话失败')
+  return false
+}
+
+const resetTriageDialog = async () => {
+  const oldSessionId = triageSessionId.value
+  if (oldSessionId && currentSessionStatus.value === 'ACTIVE') {
+    try {
+      await closeTriageSession(oldSessionId)
+    } catch (error) {
+      console.warn('关闭 AI 分诊会话失败', error)
+    }
+  }
+  resetTriageDialogState()
+  await loadTriageSessions()
+}
+
+const loadTriageSessions = async () => {
+  try {
+    const res = await getTriageSessionList()
+    if (res.code === 200) {
+      triageSessionList.value = res.data || []
+    }
+  } catch (error) {
+    console.warn('加载 AI 分诊历史失败', error)
+  }
+}
+
+const loadAiStatus = async () => {
+  try {
+    const res = await getAiStatus()
+    if (res.code === 200) {
+      aiStatus.value = res.data || null
+    }
+  } catch (error) {
+    console.warn('加载 AI 运行状态失败', error)
+  }
+}
+
+const openTriageHistory = async () => {
+  await loadTriageSessions()
+  historyDialogVisible.value = true
+}
+
+const loadTriageHistory = async (session) => {
+  if (!session?.sessionId) return
+  try {
+    const res = await getTriageSessionMessages(session.sessionId)
+    if (res.code !== 200) {
+      ElMessage.warning(res.message || '加载历史分诊消息失败')
+      return
+    }
+    triageSessionId.value = session.sessionId
+    currentSessionStatus.value = session.status || 'CLOSED'
+    triageResult.recommendedDepartments = session.recommendedDepartments || []
+    triageResult.recommendedSubDepartments = session.recommendedSubDepartments || []
+    triageResult.rationale = session.summary || ''
+    updateSourceLabel(session.source)
+    triageMessages.value = (res.data || []).map((item) => ({
+      role: item.role === 'assistant' ? 'assistant' : 'user',
+      content: item.content
+    }))
+    if (!triageMessages.value.length) {
+      setIntroMessage('这个历史会话暂无消息。')
+    }
+    historyDialogVisible.value = false
+  } catch (error) {
+    console.error('加载历史分诊消息失败', error)
+    ElMessage.error('加载历史分诊消息失败')
+  }
 }
 
 const loadDepartments = async () => {
@@ -201,10 +380,20 @@ const getCachedSubDepartments = async (departmentId) => {
 }
 
 const sendTriageMessage = async () => {
+  if (currentSessionStatus.value === 'CLOSED') {
+    ElMessage.warning('历史会话已关闭，请点击“重新开始”后继续咨询')
+    return
+  }
+
   const message = triageInput.value?.trim()
   if (!message) {
     ElMessage.warning('请先输入症状描述')
     return
+  }
+
+  if (!triageSessionId.value) {
+    const created = await createTriageSession()
+    if (!created) return
   }
 
   triageMessages.value.push({ role: 'user', content: message })
@@ -227,6 +416,8 @@ const sendTriageMessage = async () => {
         role: 'assistant',
         content: resp.data.assistantMessage || '我已经记录了你的情况，请继续补充。'
       })
+      currentSessionStatus.value = 'ACTIVE'
+      await loadTriageSessions()
       return
     }
 
@@ -290,9 +481,11 @@ const applyTriageRecommendation = async (targetName) => {
 }
 
 onMounted(async () => {
-  resetTriageDialog()
+  resetTriageDialogState()
   try {
+    await loadAiStatus()
     await loadDepartments()
+    await loadTriageSessions()
   } catch (error) {
     console.error('加载 AI 分诊科室数据失败', error)
   }
@@ -365,6 +558,27 @@ onMounted(async () => {
   font-size: 18px;
   font-weight: 700;
   color: var(--primary-800);
+}
+
+.triage-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.triage-panel-header .triage-section-title {
+  margin-bottom: 4px;
+}
+
+.triage-session-meta {
+  font-size: 12px;
+  color: var(--neutral-500);
+}
+
+.triage-session-meta span {
+  margin-left: 6px;
+  color: var(--neutral-600);
 }
 
 .triage-chat-panel {

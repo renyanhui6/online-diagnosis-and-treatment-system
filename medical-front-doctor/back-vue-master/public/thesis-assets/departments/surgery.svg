@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <rect width="640" height="360" fill="#f2f6ff"/>
+  <rect x="72" y="70" width="496" height="218" rx="24" fill="#ffffff" stroke="#5b8def" stroke-width="8"/>
+  <path d="M210 232l160-160 56 56-160 160H210z" fill="#dbe8ff" stroke="#3267c9" stroke-width="8"/>
+  <path d="M378 76l74-34 34 34-34 74" fill="none" stroke="#3267c9" stroke-width="14" stroke-linecap="round"/>
+  <text x="320" y="324" text-anchor="middle" font-family="Arial,'Microsoft YaHei',sans-serif" font-size="30" fill="#315fba">外科诊疗</text>
+</svg>

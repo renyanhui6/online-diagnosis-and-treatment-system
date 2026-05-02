@@ -74,6 +74,7 @@ public class AiRequestSanitizer {
         }
 
         sanitized.setSessionId(sanitizeSessionId(request.getSessionId()));
+        sanitized.setPatientAttendantId(request.getPatientAttendantId());
         sanitized.setAge(request.getAge());
 
         String message = sanitizeText(request.getMessage(), properties.getMaxDescriptionChars(), meta);

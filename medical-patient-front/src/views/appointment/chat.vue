@@ -154,8 +154,8 @@ const messageList = ref([])
 const inputMessage = ref('')
 
 // 医生和患者头像
-const doctorAvatar = ref('https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png')
-const patientAvatar = ref('https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png')
+const doctorAvatar = ref('/thesis-assets/avatars/doctor.svg')
+const patientAvatar = ref('/thesis-assets/avatars/patient.svg')
 
 // WebSocket服务
 let wsService = null
@@ -682,9 +682,9 @@ const fetchAppointmentDetail = async () => {
         roomInfo.id = roomData.id
         console.log('使用后端返回的房间ID:', roomData.id)
       } else {
-        // 如果没有返回房间ID，使用registrationId作为临时房间ID
-        roomInfo.id = parseInt(registrationId)
-        console.log('使用预约ID作为临时房间ID:', roomInfo.id)
+        ElMessage.warning('聊天室尚未就绪，请稍后再试')
+        router.push('/appointment/list')
+        return
       }
       
       // 确保房间ID是数字类型
@@ -697,31 +697,8 @@ const fetchAppointmentDetail = async () => {
       appointmentInfo.patientName = roomData.patientName || '患者'
       appointmentInfo.patientId = roomData.patientId || UserStorage.getUserId() // 设置患者ID
       appointmentInfo.doctorId = roomData.doctorId // 设置医生ID
-      appointmentInfo.status = 3 // 问诊中
-      
-      // 如果患者刚同意问诊，直接设置为问诊中状态，不等待医生确认
-      if (roomData.room_status === 1 || roomData.room_status === undefined) {
-        roomInfo.room_status = 2 // 问诊中
-        console.log('患者已同意问诊，直接设置为问诊中状态')
-        
-        // 发送状态更新消息给医生端
-        setTimeout(() => {
-          if (wsService && wsService.getConnectedStatus()) {
-            console.log('发送患者同意问诊状态更新到房间:', roomInfo.id)
-            wsService.sendStatusUpdate(roomInfo.id, 2) // 2-问诊中
-            
-            // 同时发送一条系统消息
-            wsService.sendChatMessage(
-              roomInfo.id,
-              appointmentInfo.patientId || UserStorage.getUserId(),
-              1, // 文本消息
-              '患者已同意开始问诊，可以开始聊天了。'
-            )
-          }
-        }, 1000)
-      } else {
-        roomInfo.room_status = roomData.room_status
-      }
+      appointmentInfo.status = roomData.room_status === 3 ? 4 : roomData.room_status === 2 ? 3 : 2
+      roomInfo.room_status = roomData.room_status ?? 1
       
       // 获取历史聊天记录（使用房间ID）
       await loadChatHistory()

@@ -73,7 +73,7 @@ const adminRoutes = [
         path: '',
         name: 'AdminDashboard',
         component: () => import('../views/admin/Dashboard.vue'),
-        meta: { title: '仪表盘' }
+        meta: { title: '管理首页' }
       },
       {
         path: 'doctors',

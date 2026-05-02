@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <rect width="640" height="360" fill="#eef9ff"/>
+  <rect x="70" y="64" width="500" height="232" rx="24" fill="#ffffff" stroke="#42a8c8" stroke-width="8"/>
+  <path d="M154 180c52-64 120-96 166-96s114 32 166 96c-52 64-120 96-166 96s-114-32-166-96z" fill="#d8f2fb" stroke="#1787a8" stroke-width="10"/>
+  <circle cx="320" cy="180" r="54" fill="#ffffff" stroke="#1787a8" stroke-width="10"/>
+  <circle cx="320" cy="180" r="22" fill="#1787a8"/>
+  <text x="320" y="324" text-anchor="middle" font-family="Arial,'Microsoft YaHei',sans-serif" font-size="30" fill="#16728d">眼科诊疗</text>
+</svg>

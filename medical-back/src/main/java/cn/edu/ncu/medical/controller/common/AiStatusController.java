@@ -34,6 +34,7 @@ public class AiStatusController {
 
         if (deepSeekProperties == null) {
             response.setDeepSeekEnabled(false);
+            response.setEffectiveMode("LOCAL_FALLBACK");
             response.setApiKeyPresent(false);
             response.setApiKeyLength(0);
             return Result.ok(response);
@@ -46,15 +47,30 @@ public class AiStatusController {
         response.setApiKeyPresent(StringUtils.hasText(apiKey));
         response.setApiKeyLength(apiKey == null ? 0 : apiKey.length());
         response.setDeepSeekEnabled(StringUtils.hasText(apiKey));
+        response.setEffectiveMode(response.isDeepSeekEnabled() ? "DEEPSEEK" : "LOCAL_FALLBACK");
+        response.setNormalizedBaseUrl(normalizeBaseUrl(deepSeekProperties.getBaseUrl()));
         response.setExternalSearchEnabled(aiSearchProperties.isEnabled() && StringUtils.hasText(aiSearchProperties.getApiKey()));
         response.setExternalSearchProvider(aiSearchProperties.getProvider());
         return Result.ok(response);
     }
 
+    private String normalizeBaseUrl(String baseUrl) {
+        String resolved = StringUtils.hasText(baseUrl) ? baseUrl.trim() : "https://api.deepseek.com";
+        if (resolved.endsWith("/")) {
+            resolved = resolved.substring(0, resolved.length() - 1);
+        }
+        if (!resolved.endsWith("/v1")) {
+            resolved = resolved + "/v1";
+        }
+        return resolved;
+    }
+
     @Data
     public static class AiStatusResponse {
         private boolean deepSeekEnabled;
+        private String effectiveMode;
         private String baseUrl;
+        private String normalizedBaseUrl;
         private String model;
         private int timeoutSeconds;
         private boolean apiKeyPresent;

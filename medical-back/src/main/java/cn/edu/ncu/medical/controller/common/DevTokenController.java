@@ -6,6 +6,7 @@ import cn.edu.ncu.medical.mapper.SystemUserMapper;
 import cn.edu.ncu.medical.result.Result;
 import cn.edu.ncu.medical.utils.JwtUtil;
 import cn.edu.ncu.medical.utils.RedisCache;
+import cn.edu.ncu.medical.utils.SHA256Util;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +28,10 @@ import java.util.concurrent.TimeUnit;
 @Profile("local")
 @ConditionalOnProperty(prefix = "app.auth", name = "dev-token-enabled", havingValue = "true")
 public class DevTokenController {
+
+    private static final int ADMIN_USER_TYPE = 3;
+    private static final String LOCAL_ADMIN_EMAIL = "admin@local.test";
+    private static final String LOCAL_ADMIN_PASSWORD = "123456";
 
     @Value("${app.auth.dev-user-id:1}")
     private Long devUserId;
@@ -69,14 +74,12 @@ public class DevTokenController {
             return systemUserMapper.selectOne(queryWrapper);
         }
         if (type != null && type > 0) {
-            LambdaQueryWrapper<SystemUser> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(SystemUser::getType, type)
-                    .eq(SystemUser::getStatus, 1)
-                    .orderByAsc(SystemUser::getId)
-                    .last("limit 1");
-            SystemUser user = systemUserMapper.selectOne(queryWrapper);
+            SystemUser user = findFirstEnabledUserByType(type);
             if (user != null) {
                 return user;
+            }
+            if (type == ADMIN_USER_TYPE) {
+                return ensureLocalAdminUser();
             }
         }
         if (devUserId != null && devUserId > 0) {
@@ -91,5 +94,52 @@ public class DevTokenController {
             return systemUserMapper.selectOne(queryWrapper);
         }
         return null;
+    }
+
+    private SystemUser findFirstEnabledUserByType(Integer type) {
+        LambdaQueryWrapper<SystemUser> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(SystemUser::getType, type)
+                .eq(SystemUser::getStatus, 1)
+                .orderByAsc(SystemUser::getId)
+                .last("limit 1");
+        return systemUserMapper.selectOne(queryWrapper);
+    }
+
+    private SystemUser ensureLocalAdminUser() {
+        LambdaQueryWrapper<SystemUser> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(SystemUser::getType, ADMIN_USER_TYPE)
+                .orderByAsc(SystemUser::getId)
+                .last("limit 1");
+        SystemUser adminUser = systemUserMapper.selectOne(queryWrapper);
+        if (adminUser != null) {
+            boolean changed = false;
+            if (adminUser.getStatus() == null || adminUser.getStatus() != 1) {
+                adminUser.setStatus(1);
+                changed = true;
+            }
+            if (adminUser.getIsDeleted() != null && adminUser.getIsDeleted() != 0) {
+                adminUser.setIsDeleted(0);
+                changed = true;
+            }
+            if (changed) {
+                systemUserMapper.updateById(adminUser);
+            }
+            return adminUser;
+        }
+
+        SystemUser localAdmin = new SystemUser();
+        localAdmin.setUsername(buildLocalAdminUsername());
+        localAdmin.setPassword(SHA256Util.encrypt(LOCAL_ADMIN_PASSWORD));
+        localAdmin.setType(ADMIN_USER_TYPE);
+        localAdmin.setEmail(LOCAL_ADMIN_EMAIL);
+        localAdmin.setRegisterType(1);
+        localAdmin.setStatus(1);
+        localAdmin.setIsDeleted(0);
+        systemUserMapper.insert(localAdmin);
+        return localAdmin;
+    }
+
+    private String buildLocalAdminUsername() {
+        return "local_admin_" + (System.currentTimeMillis() % 100000);
     }
 }

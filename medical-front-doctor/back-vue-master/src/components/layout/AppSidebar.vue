@@ -4,7 +4,7 @@
       <img src="@/assets/logo.svg" alt="Logo" class="logo" />
       <div class="brand-copy" v-show="!isCollapse">
         <h1 class="title">{{ title }}</h1>
-        <div class="title-subtitle">{{ isDoctor ? '在线问诊与病历闭环' : '运营治理与基础维护' }}</div>
+        <div class="title-subtitle">{{ isDoctor ? '在线问诊与病历闭环' : '基础维护与资源治理' }}</div>
       </div>
     </div>
     
@@ -110,7 +110,7 @@ const doctorMenus = [
 const adminMenus = [
   {
     path: '/admin',
-    title: '仪表盘',
+    title: '管理首页',
     icon: 'HomeFilled'
   },
   {

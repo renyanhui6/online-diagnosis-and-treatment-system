@@ -4,3 +4,4 @@ medical-back/src/main/resources/application-local.secret.yml
 .env.*
 *.log
 !work.log
+~$*

@@ -97,7 +97,7 @@ const router = useRouter();
 const userStore = useUserStore();
 const userInfo = computed(() => userStore.userInfo);
 const displayName = computed(() => userInfo.value.realName || userInfo.value.username || '医生');
-const avatarUrl = computed(() => userInfo.value.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png');
+const avatarUrl = computed(() => userInfo.value.avatar || '/thesis-assets/avatars/doctor.svg');
 
 const currentDate = computed(() => {
   const now = new Date();
