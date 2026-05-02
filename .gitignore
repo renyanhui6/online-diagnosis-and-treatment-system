@@ -3,5 +3,26 @@ medical-back/src/main/resources/application-local.secret.yml
 .env
 .env.*
 *.log
-!work.log
 ~$*
+
+# Local planning, thesis, and private evidence files
+/PLAN.md
+/phase-*.md
+/start.md
+/test-*.md
+/work.log
+/thesis-draft.md
+/*.pdf
+/*.doc
+/*.docx
+/*.bak*
+/Windows-*.md
+/continuous-*-test-plan.md
+/detailed-test-plan.md
+/论文要求规则汇总.md
+/终稿-*.md
+/report-extract/
+/thesis-diagrams/
+/thesis-screenshots/
+/.thesis-db-assets/
+/.thesis-fix/
